@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Float — guilt-free budgeting</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div id="app">
+  <header class="topbar">
+    <div class="brand">
+      <span class="logo">◈</span>
+      <span>Float</span>
+    </div>
+    <nav class="tabs">
+      <button class="tab active" data-tab="dashboard">Today</button>
+      <button class="tab" data-tab="setup">Income &amp; Bills</button>
+      <button class="tab" data-tab="car">Car</button>
+      <button class="tab" data-tab="receipts">Receipts</button>
+      <button class="tab" data-tab="microfunds">Micro-funds</button>
+      <button class="tab" data-tab="sandbox">Sandbox</button>
+    </nav>
+  </header>
+
+  <main>
+    <!-- ================= DASHBOARD ================= -->
+    <section class="view active" id="view-dashboard">
+      <div class="hero card">
+        <div class="hero-label">Guilt-free to spend today</div>
+        <div class="hero-amount" id="daily-allowance">$0</div>
+        <div class="hero-sub" id="daily-sub"></div>
+        <div class="hero-rollover" id="rollover-note"></div>
+      </div>
+
+      <div class="grid-3">
+        <div class="card stat">
+          <div class="stat-label">Monthly income</div>
+          <div class="stat-value" id="stat-income">$0</div>
+        </div>
+        <div class="card stat">
+          <div class="stat-label">Fixed costs</div>
+          <div class="stat-value" id="stat-fixed">$0</div>
+        </div>
+        <div class="card stat">
+          <div class="stat-label">Free to spend / mo</div>
+          <div class="stat-value" id="stat-pool">$0</div>
+        </div>
+      </div>
+
+      <div class="card" id="status-card">
+        <div class="card-head">
+          <h2>Budget check</h2>
+          <span class="pill" id="status-pill">—</span>
+        </div>
+        <div id="recommendations"></div>
+      </div>
+
+      <div class="grid-2">
+        <div class="card streak-card">
+          <div class="card-head"><h2>Streak</h2></div>
+          <div class="streak-big"><span id="streak-current">0</span> <span class="streak-unit">days under</span></div>
+          <div class="streak-flames" id="streak-flames"></div>
+          <div class="muted" id="streak-msg">Log a day under your allowance to start a streak.</div>
+          <div class="muted small">Best ever: <span id="streak-best">0</span> days</div>
+        </div>
+
+        <div class="card">
+          <div class="card-head"><h2>Log a quick expense</h2></div>
+          <form id="quick-spend" class="stack">
+            <div class="row">
+              <input type="number" step="0.01" name="amount" placeholder="Amount" required>
+              <input type="text" name="category" placeholder="Category (e.g. Coffee)">
+            </div>
+            <input type="text" name="note" placeholder="Note (optional)">
+            <button class="btn primary" type="submit">Log it</button>
+          </form>
+          <div id="today-spend-list" class="mini-list"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================= SETUP ================= -->
+    <section class="view" id="view-setup">
+      <div class="card">
+        <div class="card-head"><h2>Monthly income</h2></div>
+        <form id="income-form" class="row">
+          <input type="number" step="0.01" name="monthly" id="income-input" placeholder="e.g. 5000">
+          <button class="btn primary" type="submit">Save income</button>
+        </form>
+        <p class="muted small">After-tax take-home is best — that's the money that actually arrives.</p>
+      </div>
+
+      <div class="card">
+        <div class="card-head"><h2>Recurring bills</h2></div>
+        <form id="bill-form" class="row wrap">
+          <input type="text" name="name" placeholder="Name (e.g. Rent)" required>
+          <input type="number" step="0.01" name="amount" placeholder="Amount" required>
+          <input type="text" name="category" placeholder="Category" list="cat-list">
+          <label class="check"><input type="checkbox" name="cancellable"> Cancellable</label>
+          <button class="btn primary" type="submit">Add bill</button>
+        </form>
+        <datalist id="cat-list">
+          <option>Housing</option><option>Utilities</option><option>Insurance</option>
+          <option>Subscriptions</option><option>Phone</option><option>Debt</option>
+          <option>Groceries</option><option>Transport</option>
+        </datalist>
+        <p class="muted small">Mark streaming, apps, gym, and other easy-to-drop items as
+          <b>cancellable</b> — those are what we suggest cutting first if you're overspending.</p>
+        <table class="tbl" id="bills-table"></table>
+        <div class="totals" id="bills-total"></div>
+      </div>
+
+      <div class="card">
+        <div class="card-head"><h2>Automated savings goals</h2></div>
+        <form id="savings-form" class="row">
+          <input type="text" name="name" placeholder="Goal (e.g. Emergency fund)" required>
+          <input type="number" step="0.01" name="monthly" placeholder="Monthly amount" required>
+          <button class="btn primary" type="submit">Add goal</button>
+        </form>
+        <p class="muted small">These come off the top before your daily allowance is calculated —
+          pay yourself first.</p>
+        <table class="tbl" id="savings-table"></table>
+      </div>
+    </section>
+
+    <!-- ================= CAR ================= -->
+    <section class="view" id="view-car">
+      <div class="card">
+        <div class="card-head"><h2>Your car</h2></div>
+        <form id="car-form" class="grid-form">
+          <label>Monthly payment <input type="number" step="0.01" name="payment" placeholder="450"></label>
+          <label>APR % <input type="number" step="0.01" name="apr" placeholder="7"></label>
+          <label>Loan balance <input type="number" step="0.01" name="balance" placeholder="22000"></label>
+          <label>Months left <input type="number" name="termRemaining" placeholder="48"></label>
+          <label>Car's value <input type="number" step="0.01" name="value" placeholder="20000"></label>
+          <div class="form-actions">
+            <button class="btn primary" type="submit">Analyze my car</button>
+            <button class="btn ghost" type="button" id="car-clear">Remove car</button>
+          </div>
+        </form>
+        <p class="muted small">The payment also counts as a bill in your budget. Balance, APR, and
+          value let us model refinancing and whether you're underwater.</p>
+      </div>
+
+      <div class="card" id="car-analysis-card" style="display:none">
+        <div class="card-head">
+          <h2>Verdict</h2>
+          <span class="pill" id="car-pill">—</span>
+        </div>
+        <p id="car-verdict" class="lead"></p>
+        <div class="meter"><div class="meter-fill" id="car-meter"></div><div class="meter-mark"></div></div>
+        <div class="muted small" id="car-share-note"></div>
+        <ul class="options" id="car-options"></ul>
+      </div>
+    </section>
+
+    <!-- ================= RECEIPTS ================= -->
+    <section class="view" id="view-receipts">
+      <div class="card">
+        <div class="card-head"><h2>Scan a receipt</h2></div>
+        <p class="muted">Snap or upload a photo of a receipt and AI reads it automatically —
+          itemizing one purchase across several categories
+          (<b>$80 Groceries, $40 Gifts, $30 Clothing</b>) in one shot. No photo? Paste the text instead.</p>
+
+        <details class="ai-settings" id="ai-settings">
+          <summary>AI reading &nbsp;·&nbsp; <span id="ai-key-status">no key set</span></summary>
+          <div class="ai-settings-body">
+            <p class="muted small">Uses Google Gemini's free tier. Your key and photos go straight
+              from your browser to Google — nothing passes through the app or the repo.
+              <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">Get a free key →</a> (starts with <code>AIza…</code>)</p>
+            <div class="row">
+              <input type="password" id="gemini-key" placeholder="Paste your Gemini API key" autocomplete="off">
+              <select id="gemini-model" title="Model">
+                <option value="gemini-flash-latest">gemini-flash-latest</option>
+                <option value="gemini-flash-lite-latest">gemini-flash-lite-latest</option>
+                <option value="gemini-2.0-flash">gemini-2.0-flash</option>
+              </select>
+              <button class="btn" id="save-key">Save</button>
+            </div>
+          </div>
+        </details>
+
+        <div class="upload-zone" id="upload-zone">
+          <input type="file" id="receipt-file" accept="image/*" hidden>
+          <div class="upload-inner">
+            <div class="upload-icon">📷</div>
+            <div>Click to add a receipt photo</div>
+            <div class="muted small">or paste the text below</div>
+          </div>
+          <img id="receipt-preview" alt="">
+        </div>
+        <div class="row" id="ai-read-row" style="display:none">
+          <button class="btn primary" id="read-ai">✨ Read this receipt with AI</button>
+          <span class="muted small" id="ocr-note"></span>
+        </div>
+
+        <textarea id="receipt-text" placeholder="…or paste receipt text here — one item per line, e.g.&#10;Milk 4.99&#10;Birthday card 6.50&#10;T-shirt 19.99"></textarea>
+        <div class="row">
+          <button class="btn" id="parse-receipt">Itemize pasted text</button>
+        </div>
+      </div>
+
+      <div class="card" id="items-card" style="display:none">
+        <div class="card-head"><h2>Line items</h2></div>
+        <table class="tbl" id="items-table"></table>
+        <div class="row between">
+          <button class="btn ghost" id="add-item-row">+ Add line</button>
+          <div class="totals" id="items-total"></div>
+        </div>
+        <button class="btn primary" id="save-receipt">Save all to spending</button>
+      </div>
+    </section>
+
+    <!-- ================= MICROFUNDS ================= -->
+    <section class="view" id="view-microfunds">
+      <div class="card">
+        <div class="card-head"><h2>Spin up a micro-fund</h2></div>
+        <p class="muted">One-off events — "Sarah's Bachelorette Trip", "Replace the Microwave".
+          Fund it by redirecting money from your daily allowance, then archive it when the event's
+          over so your core budget stays clean.</p>
+        <form id="microfund-form" class="row">
+          <input type="text" name="name" placeholder="Event name" required>
+          <input type="number" step="0.01" name="target" placeholder="Target amount" required>
+          <button class="btn primary" type="submit">Create</button>
+        </form>
+      </div>
+      <div id="microfunds-list" class="grid-2"></div>
+      <div class="card" id="archived-card" style="display:none">
+        <div class="card-head"><h2>Archived</h2></div>
+        <div id="archived-list" class="mini-list"></div>
+      </div>
+    </section>
+
+    <!-- ================= SANDBOX ================= -->
+    <section class="view" id="view-sandbox">
+      <div class="card">
+        <div class="card-head"><h2>What-if sandbox</h2></div>
+        <p class="muted">Feel a big purchase before you sign for it. Model a loan and see exactly
+          how much it shrinks your guilt-free daily allowance — every day, for years.</p>
+        <div class="preset-row">
+          <button class="btn ghost preset" data-amount="30000" data-apr="7" data-term="60">$30k car @ 7% / 5yr</button>
+          <button class="btn ghost preset" data-amount="1200" data-apr="0" data-term="12">$1,200 phone / 12mo</button>
+          <button class="btn ghost preset" data-amount="15000" data-apr="9" data-term="48">$15k loan @ 9% / 4yr</button>
+        </div>
+        <div class="grid-form">
+          <label>Amount financed <input type="number" step="0.01" id="sb-amount" placeholder="30000"></label>
+          <label>APR % <input type="number" step="0.01" id="sb-apr" placeholder="7"></label>
+          <label>Term (months) <input type="number" id="sb-term" placeholder="60"></label>
+        </div>
+      </div>
+
+      <div class="card" id="sandbox-result" style="display:none">
+        <div class="grid-3">
+          <div class="stat">
+            <div class="stat-label">New monthly payment</div>
+            <div class="stat-value" id="sb-payment">$0</div>
+          </div>
+          <div class="stat">
+            <div class="stat-label">Total interest</div>
+            <div class="stat-value warn" id="sb-interest">$0</div>
+          </div>
+          <div class="stat">
+            <div class="stat-label">Total cost</div>
+            <div class="stat-value" id="sb-total">$0</div>
+          </div>
+        </div>
+        <div class="impact">
+          <div class="impact-row">
+            <span>Daily allowance today</span>
+            <b id="sb-daily-now">$0</b>
+          </div>
+          <div class="impact-arrow">↓</div>
+          <div class="impact-row big">
+            <span>After this purchase</span>
+            <b id="sb-daily-new">$0</b>
+          </div>
+          <div class="impact-drop" id="sb-drop"></div>
+        </div>
+        <p id="sb-verdict" class="lead"></p>
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <span class="muted small">Local &amp; private — your data lives in <code>data.json</code> on your machine.</span>
+    <button class="btn ghost tiny" id="reset-btn">Reset all data</button>
+  </footer>
+</div>
+<script src="app.js"></script>
+</body>
+</html>

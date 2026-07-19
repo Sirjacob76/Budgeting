@@ -1,0 +1,15 @@
+# Personal financial data — never commit this
+data.json
+data.json.tmp
+*.tmp
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+*.swp
