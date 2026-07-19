@@ -9,6 +9,12 @@ __pycache__/
 .venv/
 venv/
 
+# Node / Cloudflare Workers
+node_modules/
+.wrangler/
+.dev.vars
+.dev.vars.*
+
 # OS / editor
 .DS_Store
 Thumbs.db

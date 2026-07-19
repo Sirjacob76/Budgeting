@@ -5,17 +5,47 @@ tells you whether you're over- or under-paying, what to cancel to get back in th
 and whether your **car** is affordable (with real refinance/trade-down math). Then it turns
 your leftover money into one number: **what you can guilt-free spend today.**
 
-Pure Python standard library — no `pip install`, no Node, no accounts. Your data never
-leaves your machine (it lives in `data.json` next to `server.py`).
+It runs two ways:
 
-## Run it
+- **On your phone, always-on** — hosted free on **Cloudflare Workers** (see *Deploy to Cloudflare* below).
+- **Locally on your PC** — a zero-dependency Python server for offline/dev use.
+
+## Run it locally
 
 ```
 cd budget-app
 python server.py
 ```
 
-Then open **http://localhost:8000**. Press `Ctrl+C` to stop.
+Then open **http://localhost:8000**. Press `Ctrl+C` to stop. Local mode stores data in
+`data.json` next to `server.py` and needs no login.
+
+## Deploy to Cloudflare (always-on, on your phone)
+
+The same app runs as a Cloudflare Worker: the backend is [`src/index.js`](src/index.js), your
+data lives in a Cloudflare **KV** namespace, and the frontend is served from `static/`. It's
+free, always-on (no sleep), and auto-deploys every time we push to GitHub. Your Gemini receipt
+key still lives only in your phone's browser.
+
+**One-time setup (all in the Cloudflare dashboard — no installs on your machine):**
+
+1. **Create a free Cloudflare account** at dash.cloudflare.com (no credit card for the free tier).
+2. **Create the storage:** Storage & Databases → **KV** → *Create namespace* → name it `float-state`.
+   Copy the **Namespace ID** it gives you and paste it into [`wrangler.toml`](wrangler.toml)
+   (replacing `REPLACE_WITH_YOUR_KV_NAMESPACE_ID`).
+3. **Connect the repo:** Workers & Pages → **Create** → *Import a repository* → pick
+   `Sirjacob76/Budgeting`. Cloudflare reads `wrangler.toml` and deploys.
+4. **Set your password:** on the new Worker → Settings → **Variables and secrets** → add a
+   **Secret** named `APP_PASSWORD` with the password you want → redeploy. (It's write-only —
+   nobody, including this project, can read it back.)
+5. Open your `*.workers.dev` URL, log in, and you're live. On your phone, add the app to your
+   home screen for an app-like icon.
+
+After this, every `git push` (including the auto-sync hook) redeploys automatically.
+
+> **Security:** all `/api` routes require the password; the login mints a signed, HttpOnly
+> session cookie. Without `APP_PASSWORD` set, the app stays locked. `data.json` is only used by
+> the local Python server and is gitignored — it's never uploaded.
 
 ## What's inside
 
@@ -52,14 +82,35 @@ and Save. Then any receipt photo is auto-itemized into editable line items acros
   parser splits it up. The AI call lives in `readReceiptWithAI()` in `static/app.js`.
 - Email-receipt import (IMAP/OAuth) is still on the roadmap; photo + paste cover the day-to-day.
 
+## Auto-sync to GitHub
+
+This project auto-commits and pushes to **github.com/Sirjacob76/Budgeting** whenever a Claude
+Code turn ends and there are changes. It's a `Stop` hook (in the parent
+`.claude/settings.local.json`) that runs [`.claude/auto-push.sh`](.claude/auto-push.sh):
+
+- Only commits when `budget-app` actually has changes — no empty commits, and turns that touch
+  other projects are ignored.
+- `data.json` stays gitignored, so personal financial data is never pushed.
+- If you're offline, it commits locally and pushes on the next change.
+
+Manage or disable it anytime from the `/hooks` menu in Claude Code.
+
 ## Files
 
 ```
 budget-app/
-  server.py            # API + financial math (stdlib http.server)
-  data.json            # your data (created on first save)
+  src/
+    index.js           # Cloudflare Worker: API, auth, budget math (production backend)
+  wrangler.toml        # Cloudflare config (KV binding, static assets)
+  package.json         # deploy metadata
+  server.py            # local dev backend (stdlib http.server, file storage)
+  data.json            # local-only data (gitignored)
+  test-harness.html    # in-browser parity tests: JS Worker vs Python backend
   static/
-    index.html         # UI
+    index.html         # UI (shared by both backends)
     styles.css         # styling
     app.js             # front-end logic
 ```
+
+The Worker (`src/index.js`) and the local server (`server.py`) implement the identical API and
+budget math; `test-harness.html` asserts they produce the same numbers.

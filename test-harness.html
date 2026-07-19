@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html><head><meta charset="utf-8"><title>Float Worker parity tests</title>
+<style>body{font-family:monospace;background:#0e1116;color:#e6edf3;padding:20px}
+.pass{color:#4ade80}.fail{color:#f87171;font-weight:bold}</style></head>
+<body><h2>Float Worker parity tests</h2><pre id="out"></pre>
+<script type="module">
+import { monthlyPayment, computeSummary, analyzeCar, sandboxResult } from "./src/index.js";
+const out = document.getElementById("out");
+let pass = 0, fail = 0;
+const near = (a, b, eps = 0.02) => Math.abs(a - b) <= eps;
+function check(name, got, want, eps) {
+  const ok = typeof want === "number" ? near(got, want, eps) : got === want;
+  out.innerHTML += `<span class="${ok ? "pass" : "fail"}">${ok ? "PASS" : "FAIL"}</span> ${name} => got ${got}${ok ? "" : `, want ${want}`}\n`;
+  ok ? pass++ : fail++;
+}
+
+// 1. Loan amortization (matches Python monthly_payment)
+check("monthlyPayment(30000,7,60)", monthlyPayment(30000, 7, 60), 594.04);
+check("monthlyPayment(0% 1200/12)", monthlyPayment(1200, 0, 12), 100);
+
+// 2. Healthy scenario parity (Python: pool 2318, baselineDaily 74.77)
+const healthy = {
+  income: { monthly: 5200 },
+  bills: [
+    { id: "1", name: "Rent", amount: 1650, category: "Housing", cancellable: false },
+    { id: "2", name: "Util", amount: 140, category: "Utilities", cancellable: false },
+    { id: "3", name: "Phone", amount: 75, category: "Phone", cancellable: false },
+    { id: "4", name: "Streaming", amount: 32, category: "Subscriptions", cancellable: true },
+    { id: "5", name: "Gym", amount: 45, category: "Subscriptions", cancellable: true },
+  ],
+  car: { payment: 540, apr: 6.5, balance: 18000, termRemaining: 42, value: 19500 },
+  savingsGoals: [{ id: "s", name: "EF", monthly: 400 }],
+  spending: [], microfunds: [], settings: {}, streak: { current: 0, best: 0 },
+};
+const hs = computeSummary(healthy, "2026-07-19");
+check("healthy fixed", hs.fixed, 2882);
+check("healthy pool", hs.discretionaryPool, 2318);
+check("healthy status", hs.status, "healthy");
+check("healthy baselineDaily(Jul=31d)", hs.baselineDaily, 2318 / 31);
+check("healthy car affordable", analyzeCar(healthy, 5200, 2318).affordable, true);
+check("healthy car share 10%", analyzeCar(healthy, 5200, 2318).share, 540 / 5200);
+
+// 3. Overpay scenario (Python: deficit 635 at income 2200, status overpaying)
+const over = structuredClone(healthy);
+over.income.monthly = 2200;
+over.car = { payment: 700, apr: 11, balance: 26000, termRemaining: 60, value: 19000 };
+over.savingsGoals = [{ id: "s", name: "Roth", monthly: 500 }];
+over.bills = [
+  { id: "1", name: "Rent", amount: 1500, cancellable: false },
+  { id: "2", name: "Streaming bundle", amount: 55, cancellable: true },
+  { id: "3", name: "Gym", amount: 80, cancellable: true },
+];
+const os = computeSummary(over, "2026-07-19");
+check("overpay status", os.status, "overpaying");
+check("overpay pool", os.discretionaryPool, 2200 - (1500 + 55 + 80) - 700 - 500);
+check("overpay has cancel rec", os.recommendations.some(r => /Cancelling these/.test(r.text)), true);
+check("overpay car underwater option", analyzeCar(over, 2200, os.discretionaryPool).options.some(o => /underwater/.test(o)), true);
+
+// 4. Sandbox parity (Python: payment 594.04, interest 5642.16)
+const sb = sandboxResult(healthy, { amount: 30000, apr: 7, termMonths: 60 }, "2026-07-19");
+check("sandbox payment", sb.monthlyPayment, 594.04);
+check("sandbox interest", sb.totalInterest, 5642.16, 0.5);
+check("sandbox newDaily < baseline", sb.newDailyBaseline < sb.currentDailyBaseline, true);
+
+// 5. Days-left math (Feb leap year sanity)
+check("daysInMonth Feb 2028 (leap)", computeSummary({ ...healthy, income: { monthly: 3100 } }, "2028-02-15").daysInMonth, 29);
+
+out.innerHTML += `\n${fail === 0 ? "ALL PASS" : fail + " FAILED"} (${pass} passed)\n`;
+window.__result = { pass, fail };
+</script></body></html>

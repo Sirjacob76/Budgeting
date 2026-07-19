@@ -1,0 +1,13 @@
+{
+  "name": "float-budget",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Float — guilt-free budgeting, hosted on Cloudflare Workers",
+  "scripts": {
+    "deploy": "wrangler deploy",
+    "dev": "wrangler dev"
+  },
+  "devDependencies": {
+    "wrangler": "^3"
+  }
+}
