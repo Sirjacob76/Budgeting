@@ -20,4 +20,4 @@ binding = "ASSETS"
 # Create the namespace in the dashboard, then replace the id below with the real one.
 [[kv_namespaces]]
 binding = "FLOAT_KV"
-id = "REPLACE_WITH_YOUR_KV_NAMESPACE_ID"
+id = "a8af33899d03401bb3eb42382a5f07cd"
