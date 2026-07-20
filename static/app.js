@@ -244,34 +244,23 @@ function renderSetup() {
     gCard.style.display = "none";
   }
 
-  // bills
+  // bills — split into fixed and variable
+  const fixedBills = STATE.bills.filter((b) => !b.variable);
+  const varBills = STATE.bills.filter((b) => b.variable);
+
   const bt = $("#bills-table");
-  bt.innerHTML = "";
-  if (!STATE.bills.length) {
-    bt.innerHTML = `<tr><td class="empty">No bills yet. Add rent, utilities, subscriptions…</td></tr>`;
-  }
-  STATE.bills.forEach((b) => {
-    const tr = document.createElement("tr");
-    if (b.paidOff) tr.className = "paid-off";
-    const due = b.dueDay ? `due ${ordinal(b.dueDay)}` : "no date";
-    const paidBadge = b.paidOff ? ` <span class="tag paid">🎉 paid off</span>` : "";
-    tr.innerHTML = `
-      <td>${escapeHtml(b.name)}${paidBadge}</td>
-      <td><span class="tag">${escapeHtml(b.category)}</span></td>
-      <td><span class="tag">${due}</span></td>
-      <td><span class="tag ${b.autopay ? "auto" : ""}" data-autopay="${b.id}" style="cursor:pointer">
-        ${b.autopay ? "⟳ autopay" : "manual"}</span></td>
-      <td><span class="tag ${b.cancellable ? "can" : ""}" data-toggle="${b.id}" style="cursor:pointer">
-        ${b.cancellable ? "✓ cancellable" : "fixed"}</span></td>
-      <td class="amt">${fmt(b.amount)}</td>
-      <td class="row-actions">
-        <button class="icon-btn paidoff-btn ${b.paidOff ? "is-paid" : ""}" data-paidoff="${b.id}"
-          title="${b.paidOff ? "Paid off — tap to undo" : "Mark this bill paid off"}">${b.paidOff ? "↩" : "🏁"}</button>
-        <button class="icon-btn" data-del-bill="${b.id}">✕</button>
-      </td>`;
-    bt.appendChild(tr);
-  });
-  $("#bills-total").textContent = STATE.bills.length ? "Total bills: " + fmt(SUMMARY.bills) : "";
+  bt.innerHTML = fixedBills.length
+    ? fixedBills.map((b) => `<tr class="${b.paidOff ? "paid-off" : ""}">${billRowHtml(b)}</tr>`).join("")
+    : `<tr><td class="empty">No fixed bills yet. Add rent, phone, subscriptions…</td></tr>`;
+  const fixedTotal = fixedBills.filter((b) => !b.paidOff).reduce((a, b) => a + Number(b.amount), 0);
+  $("#bills-total").textContent = fixedBills.length ? "Total fixed bills: " + fmt(fixedTotal) : "";
+
+  const vt = $("#variable-table");
+  vt.innerHTML = varBills.length
+    ? varBills.map((b) => `<tr>${billRowHtml(b)}</tr>`).join("")
+    : `<tr><td class="empty">No variable bills yet. Add electric, gas, water…</td></tr>`;
+  const varTotal = varBills.reduce((a, b) => a + Number(b.amount), 0);
+  $("#variable-total").textContent = varBills.length ? "Typical total: " + fmt(varTotal) + "/mo" : "";
 
   // savings
   const st = $("#savings-table");
@@ -379,6 +368,27 @@ function ordinal(n) {
   return n + (s[(v - 20) % 10] || s[v] || s[0]);
 }
 
+// One row builder for both the fixed and variable bill tables.
+function billRowHtml(b) {
+  const due = b.dueDay ? `due ${ordinal(b.dueDay)}` : "no date";
+  const paidBadge = b.paidOff ? ` <span class="tag paid">🎉 paid off</span>` : "";
+  const range = (b.low != null || b.high != null)
+    ? `<div class="muted small">${b.low != null ? fmt0(b.low) : "?"}–${b.high != null ? fmt0(b.high) : "?"}</div>` : "";
+  const amtCell = b.variable ? `~${fmt(b.amount)}${range}` : fmt(b.amount);
+  // "Paid off" doesn't apply to a utility that recurs forever, so hide it on variable bills.
+  const paidBtn = b.variable ? "" :
+    `<button class="icon-btn paidoff-btn ${b.paidOff ? "is-paid" : ""}" data-paidoff="${b.id}"
+       title="${b.paidOff ? "Paid off — tap to undo" : "Mark this bill paid off"}">${b.paidOff ? "↩" : "🏁"}</button>`;
+  return `
+    <td>${escapeHtml(b.name)}${paidBadge}</td>
+    <td><span class="tag">${escapeHtml(b.category)}</span></td>
+    <td><span class="tag">${due}</span></td>
+    <td><span class="tag ${b.autopay ? "auto" : ""}" data-autopay="${b.id}" style="cursor:pointer">${b.autopay ? "⟳ autopay" : "manual"}</span></td>
+    <td><span class="tag ${b.cancellable ? "can" : ""}" data-toggle="${b.id}" style="cursor:pointer">${b.cancellable ? "✓ cancellable" : "fixed"}</span></td>
+    <td class="amt">${amtCell}</td>
+    <td class="row-actions">${paidBtn}<button class="icon-btn" data-del-bill="${b.id}">✕</button></td>`;
+}
+
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 function prettyDate(iso) {
   const [y, m, d] = iso.split("-").map(Number);
@@ -465,6 +475,19 @@ $("#bill-form").addEventListener("submit", (e) => {
   });
   f.reset();
   toast("Bill added");
+});
+
+// Variable bills (electric, gas, water…)
+$("#varbill-form").addEventListener("submit", (e) => {
+  e.preventDefault();
+  const f = e.target;
+  api("/api/bills", "POST", {
+    name: f.name.value, amount: f.amount.value, category: f.category.value || "Utilities",
+    variable: true, low: f.low.value, high: f.high.value,
+    dueDay: f.dueDay.value, autopay: f.autopay.checked,
+  });
+  f.reset();
+  toast("Variable bill added");
 });
 
 // Savings

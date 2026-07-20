@@ -220,6 +220,20 @@
       notes.push({ type: "alert", text: `Your bills are ${pct(billsPct)} of income — very high. There's little left over; consider cutting the cancellable ones.` });
     }
 
+    // 1b) Variable bills — remind them to keep a cushion for high months
+    const variableBills = activeBills(state).filter((b) => b.variable);
+    if (variableBills.length) {
+      const cushion = variableBills.reduce((a, b) => a + Math.max(0, (Number(b.high) || Number(b.amount)) - Number(b.amount)), 0);
+      if (cushion > 0) {
+        notes.push({ type: "warning", text:
+          `Your ${variableBills.length} variable bill${variableBills.length > 1 ? "s" : ""} (electric, gas, etc.) are budgeted at their typical amount. ` +
+          `A high month could add about ${money(cushion)} — keep that much as a cushion.` });
+      } else {
+        notes.push({ type: "action", text:
+          `You have variable bills budgeted at their typical amount. Set aside a small cushion for the months they spike.` });
+      }
+    }
+
     // 2) Savings ("put back")
     if (leftAfterBills > 0) {
       const idealSave = Math.min(target, leftAfterBills);
@@ -451,6 +465,9 @@
           dueDay,
           autopay: Boolean(body.autopay),
           paidOff: false,
+          variable: Boolean(body.variable),
+          low: body.low !== undefined && body.low !== "" && body.low !== null ? Number(body.low) : null,
+          high: body.high !== undefined && body.high !== "" && body.high !== null ? Number(body.high) : null,
         });
         return stateResult(state, t);
       }
