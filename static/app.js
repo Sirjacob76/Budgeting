@@ -60,8 +60,13 @@ function render() {
 
 /* -------------------- Pie chart (SVG donut) -------------------- */
 // Validated categorical palette (dataviz skill), fixed order — never cycled.
-const PIE_COLORS = ["#2a78d6", "#1baf7a", "#eda100", "#008300", "#4a3aa7", "#e34948", "#e87ba4", "#eb6834"];
+// Light and dark are the same eight hues, each stepped for its surface.
+const PIE_COLORS_LIGHT = ["#2a78d6", "#1baf7a", "#eda100", "#008300", "#4a3aa7", "#e34948", "#e87ba4", "#eb6834"];
+const PIE_COLORS_DARK = ["#3987e5", "#199e70", "#c98500", "#008300", "#9085e9", "#e66767", "#d55181", "#d95926"];
 const OTHER_COLOR = "#8b98a9";
+function pieColors() {
+  return document.documentElement.getAttribute("data-theme") === "dark" ? PIE_COLORS_DARK : PIE_COLORS_LIGHT;
+}
 
 function polar(cx, cy, r, frac) {
   const a = 2 * Math.PI * frac - Math.PI / 2;
@@ -77,11 +82,12 @@ function renderPie() {
     legend.innerHTML = `<div class="empty">Add income and bills to see where your money goes.</div>`;
     return;
   }
+  const COLORS = pieColors();
   const size = 200, cx = size / 2, cy = size / 2, r = 92, inner = 56;
   let acc = 0;
   const segs = items.map((it, i) => {
     const start = acc; acc += it.pct; const end = acc;
-    const color = it.category === "Other" ? OTHER_COLOR : PIE_COLORS[i % PIE_COLORS.length];
+    const color = it.category === "Other" ? OTHER_COLOR : COLORS[i % COLORS.length];
     if (it.pct >= 0.999) { // single full slice -> ring, avoids degenerate arc
       return `<circle cx="${cx}" cy="${cy}" r="${(r + inner) / 2}" fill="none" stroke="${color}" stroke-width="${r - inner}"/>`;
     }
@@ -101,7 +107,7 @@ function renderPie() {
     </svg>`;
 
   legend.innerHTML = items.map((it, i) => {
-    const color = it.category === "Other" ? OTHER_COLOR : PIE_COLORS[i % PIE_COLORS.length];
+    const color = it.category === "Other" ? OTHER_COLOR : COLORS[i % COLORS.length];
     return `<div class="legend-row">
       <span class="legend-dot" style="background:${color}"></span>
       <span class="legend-name">${escapeHtml(it.category)}</span>
@@ -826,5 +832,13 @@ async function load() {
   STATE = data.state; SUMMARY = data.summary;
   render();
 }
+// Light/dark toggle (initial theme is set by the inline script in <head>)
+$("#theme-toggle").addEventListener("click", () => {
+  const next = document.documentElement.getAttribute("data-theme") === "dark" ? "light" : "dark";
+  document.documentElement.setAttribute("data-theme", next);
+  try { localStorage.setItem("float.theme", next); } catch (e) {}
+  if (SUMMARY) renderPie(); // recolor the chart for the new surface
+});
+
 loadKey();
 load();

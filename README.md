@@ -68,7 +68,8 @@ in the browser via [`static/engine.js`](static/engine.js).
   Notifications API for a preview.
 
 The look is a **neumorphic (soft-UI) theme** — one background color with paired light/dark
-shadows for a soft 3D feel.
+shadows for a soft 3D feel — with a **light/dark mode slider** in the top bar (remembers your
+choice, defaults to your device preference).
 
 ## Receipt OCR (Google Gemini)
 
