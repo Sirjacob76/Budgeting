@@ -2,12 +2,16 @@
   "name": "float-budget",
   "version": "1.0.0",
   "private": true,
-  "description": "Float — guilt-free budgeting, hosted on Cloudflare Workers",
+  "description": "Float — guilt-free budgeting, packaged as a native Android app with Capacitor",
   "scripts": {
-    "deploy": "wrangler deploy",
-    "dev": "wrangler dev"
+    "sync": "cap sync android",
+    "open": "cap open android"
+  },
+  "dependencies": {
+    "@capacitor/android": "^6.0.0",
+    "@capacitor/core": "^6.0.0"
   },
   "devDependencies": {
-    "wrangler": "^3"
+    "@capacitor/cli": "^6.0.0"
   }
 }

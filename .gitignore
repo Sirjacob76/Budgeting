@@ -9,11 +9,12 @@ __pycache__/
 .venv/
 venv/
 
-# Node / Cloudflare Workers
+# Node / Capacitor
 node_modules/
-.wrangler/
-.dev.vars
-.dev.vars.*
+package-lock.json
+
+# Generated native project (Capacitor scaffolds this in CI each build)
+/android/
 
 # OS / editor
 .DS_Store

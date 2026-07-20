@@ -1,51 +1,42 @@
 # Float — guilt-free budgeting
 
-A local, private budgeting app. Tell it your **income** and **recurring bills**, and it
-tells you whether you're over- or under-paying, what to cancel to get back in the black,
-and whether your **car** is affordable (with real refinance/trade-down math). Then it turns
-your leftover money into one number: **what you can guilt-free spend today.**
+A private budgeting app. Tell it your **income** and **recurring bills**, and it tells you
+whether you're over- or under-paying, what to cancel to get back in the black, and whether your
+**car** is affordable (with real refinance/trade-down math). Then it turns your leftover money
+into one number: **what you can guilt-free spend today.**
 
-It runs two ways:
+Float is a **native Android app**. It runs **fully on-device** — no account, no login, no
+server, works offline. All your budget data stays in your phone's storage; nothing is uploaded
+and no personal information is collected. (The only optional network call is receipt scanning,
+which sends a photo to Google Gemini using *your* key — see below.)
 
-- **On your phone, always-on** — hosted free on **Cloudflare Workers** (see *Deploy to Cloudflare* below).
-- **Locally on your PC** — a zero-dependency Python server for offline/dev use.
+## Get the app on your phone
 
-## Run it locally
+The app is the web UI wrapped with **Capacitor** into a real Android package. You never build
+anything locally — a **GitHub Actions** workflow builds the APK in the cloud:
+
+1. Push to `main` (the auto-sync hook already does this), or trigger it manually:
+   repo → **Actions** tab → **Build Android APK** → *Run workflow*.
+2. When the run finishes (green check, ~3–5 min), open it and download the
+   **`float-android-apk`** artifact (a `.zip` containing `app-debug.apk`).
+3. Get the APK onto your phone (email/Drive/USB). Tap it to install — Android asks you to allow
+   *install from unknown sources* the first time (normal for apps not from the Play Store).
+4. Open **Float** from your app drawer. It's a real app now.
+
+> This is a debug build, signed with a standard debug key — perfect for testing on your own
+> device. A signed release build (for Play Store distribution, a one-time $25) is a later step.
+
+## Preview on your PC (optional)
+
+The whole app is client-side, so any static server works:
 
 ```
 cd budget-app
-python server.py
+python server.py     # then open http://localhost:8000
 ```
 
-Then open **http://localhost:8000**. Press `Ctrl+C` to stop. Local mode stores data in
-`data.json` next to `server.py` and needs no login.
-
-## Deploy to Cloudflare (always-on, on your phone)
-
-The same app runs as a Cloudflare Worker: the backend is [`src/index.js`](src/index.js), your
-data lives in a Cloudflare **KV** namespace, and the frontend is served from `static/`. It's
-free, always-on (no sleep), and auto-deploys every time we push to GitHub. Your Gemini receipt
-key still lives only in your phone's browser.
-
-**One-time setup (all in the Cloudflare dashboard — no installs on your machine):**
-
-1. **Create a free Cloudflare account** at dash.cloudflare.com (no credit card for the free tier).
-2. **Create the storage:** Storage & Databases → **KV** → *Create namespace* → name it `float-state`.
-   Copy the **Namespace ID** it gives you and paste it into [`wrangler.toml`](wrangler.toml)
-   (replacing `REPLACE_WITH_YOUR_KV_NAMESPACE_ID`).
-3. **Connect the repo:** Workers & Pages → **Create** → *Import a repository* → pick
-   `Sirjacob76/Budgeting`. Cloudflare reads `wrangler.toml` and deploys.
-4. **Set your password:** on the new Worker → Settings → **Variables and secrets** → add a
-   **Secret** named `APP_PASSWORD` with the password you want → redeploy. (It's write-only —
-   nobody, including this project, can read it back.)
-5. Open your `*.workers.dev` URL, log in, and you're live. On your phone, add the app to your
-   home screen for an app-like icon.
-
-After this, every `git push` (including the auto-sync hook) redeploys automatically.
-
-> **Security:** all `/api` routes require the password; the login mints a signed, HttpOnly
-> session cookie. Without `APP_PASSWORD` set, the app stays locked. `data.json` is only used by
-> the local Python server and is gitignored — it's never uploaded.
+`server.py` is just a convenience file server for local preview; the app itself runs entirely
+in the browser via [`static/engine.js`](static/engine.js).
 
 ## What's inside
 
@@ -75,42 +66,35 @@ The Receipts tab reads photos with **Google Gemini's free tier**. Open the *AI r
 on that tab, paste a free key from [aistudio.google.com/apikey](https://aistudio.google.com/apikey),
 and Save. Then any receipt photo is auto-itemized into editable line items across categories.
 
-- **Privacy:** the key and the photo go **straight from your browser to Google** — they never
-  pass through the Python server, and the key is stored only in your browser's `localStorage`.
-  **No API key is ever written to a file or committed to this repo.**
+- **Privacy:** the key and photo go **straight from your phone to Google** — nothing passes
+  through any server of ours (there is no server), and the key is stored only on your device.
 - **Fallback:** no key / no photo? Paste receipt text and hit *Itemize pasted text* — a built-in
   parser splits it up. The AI call lives in `readReceiptWithAI()` in `static/app.js`.
-- Email-receipt import (IMAP/OAuth) is still on the roadmap; photo + paste cover the day-to-day.
 
 ## Auto-sync to GitHub
 
 This project auto-commits and pushes to **github.com/Sirjacob76/Budgeting** whenever a Claude
-Code turn ends and there are changes. It's a `Stop` hook (in the parent
-`.claude/settings.local.json`) that runs [`.claude/auto-push.sh`](.claude/auto-push.sh):
-
-- Only commits when `budget-app` actually has changes — no empty commits, and turns that touch
-  other projects are ignored.
-- `data.json` stays gitignored, so personal financial data is never pushed.
-- If you're offline, it commits locally and pushes on the next change.
-
-Manage or disable it anytime from the `/hooks` menu in Claude Code.
+Code turn ends and there are changes — a `Stop` hook (in the parent `.claude/settings.local.json`)
+that runs [`.claude/auto-push.sh`](.claude/auto-push.sh). Each push also kicks off the Android
+build. Manage or disable it from the `/hooks` menu.
 
 ## Files
 
 ```
 budget-app/
-  src/
-    index.js           # Cloudflare Worker: API, auth, budget math (production backend)
-  wrangler.toml        # Cloudflare config (KV binding, static assets)
-  package.json         # deploy metadata
-  server.py            # local dev backend (stdlib http.server, file storage)
-  data.json            # local-only data (gitignored)
-  test-harness.html    # in-browser parity tests: JS Worker vs Python backend
   static/
-    index.html         # UI (shared by both backends)
+    index.html         # UI
     styles.css         # styling
-    app.js             # front-end logic
+    app.js             # front-end logic (calls the local engine)
+    engine.js          # on-device budget engine: all logic + localStorage (the whole "backend")
+  capacitor.config.json  # Capacitor app config (appId, name, webDir)
+  package.json           # Capacitor dependencies
+  .github/workflows/
+    android.yml          # cloud build -> downloadable APK
+  test-harness.html      # in-browser tests for the engine's math
+  server.py              # optional local preview server (stdlib)
+  data.json              # only used by server.py; gitignored
 ```
 
-The Worker (`src/index.js`) and the local server (`server.py`) implement the identical API and
-budget math; `test-harness.html` asserts they produce the same numbers.
+The app has **no backend** — `static/engine.js` runs all the budget math and stores state in the
+device's `localStorage`. `test-harness.html` asserts that math against known values.

@@ -19,53 +19,13 @@ const fmt0 = (n) => {
   });
 };
 
-/* -------------------- API -------------------- */
-// Local date as YYYY-MM-DD, so month math is correct in the user's timezone.
-function localToday() { return new Date().toLocaleDateString("en-CA"); }
-
+/* -------------------- Engine bridge -------------------- */
+// All budget logic runs on-device via FloatEngine (static/engine.js); nothing
+// touches the network. Kept async so the calling UI code is unchanged.
 async function api(path, method = "GET", body = null) {
-  const opts = {
-    method,
-    headers: { "Content-Type": "application/json", "X-Today": localToday() },
-    credentials: "same-origin",
-  };
-  if (body) opts.body = JSON.stringify(body);
-  const res = await fetch(path, opts);
-  if (res.status === 401) { showLogin(); return { error: "auth" }; }
-  const data = await res.json();
+  const data = window.FloatEngine.handle(path, method, body);
   if (data.state) { STATE = data.state; SUMMARY = data.summary; render(); }
   return data;
-}
-
-/* -------------------- Login gate -------------------- */
-function showLogin() {
-  document.getElementById("login-overlay").classList.add("show");
-  const inp = document.getElementById("login-password");
-  if (inp) inp.focus();
-}
-function hideLogin() {
-  document.getElementById("login-overlay").classList.remove("show");
-}
-async function submitLogin(e) {
-  if (e) e.preventDefault();
-  const inp = document.getElementById("login-password");
-  const err = document.getElementById("login-error");
-  err.textContent = "";
-  const res = await fetch("/api/login", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    credentials: "same-origin",
-    body: JSON.stringify({ password: inp.value }),
-  });
-  if (res.ok) {
-    inp.value = "";
-    hideLogin();
-    load();
-  } else {
-    const data = await res.json().catch(() => ({}));
-    err.textContent = data.error || "Login failed";
-    inp.select();
-  }
 }
 
 function toast(msg) {
@@ -668,13 +628,8 @@ $$(".preset").forEach((btn) => btn.addEventListener("click", () => {
 /* -------------------- Boot -------------------- */
 async function load() {
   const data = await api("/api/state");
-  if (!data.state) return; // 401 -> login overlay is showing
   STATE = data.state; SUMMARY = data.summary;
   render();
 }
-
-const loginForm = document.getElementById("login-form");
-if (loginForm) loginForm.addEventListener("submit", submitLogin);
-
 loadKey();
 load();
