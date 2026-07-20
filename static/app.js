@@ -64,14 +64,49 @@ function closeCelebrate() { $("#celebrate").classList.remove("show"); $("#confet
 $("#celebrate-close").addEventListener("click", closeCelebrate);
 $("#celebrate").addEventListener("click", (e) => { if (e.target.id === "celebrate") closeCelebrate(); });
 
-/* -------------------- Tabs -------------------- */
-$$(".tab").forEach((tab) => {
-  tab.addEventListener("click", () => {
-    $$(".tab").forEach((t) => t.classList.remove("active"));
-    $$(".view").forEach((v) => v.classList.remove("active"));
-    tab.classList.add("active");
-    $("#view-" + tab.dataset.tab).classList.add("active");
+/* -------------------- Navigation (hamburger drawer) -------------------- */
+function openDrawer() { $("#drawer").classList.add("show"); }
+function closeDrawer() { $("#drawer").classList.remove("show"); }
+function switchTab(name) {
+  $$(".nav-item").forEach((n) => n.classList.toggle("active", n.dataset.tab === name));
+  $$(".view").forEach((v) => v.classList.remove("active"));
+  const view = $("#view-" + name);
+  if (view) view.classList.add("active");
+  const item = $(`.nav-item[data-tab="${name}"]`);
+  if (item) $("#section-title").textContent = item.dataset.title;
+  closeDrawer();
+  window.scrollTo(0, 0);
+}
+$$(".nav-item").forEach((item) => item.addEventListener("click", () => switchTab(item.dataset.tab)));
+$("#menu-btn").addEventListener("click", openDrawer);
+$("#drawer").addEventListener("click", (e) => { if (e.target.id === "drawer") closeDrawer(); });
+
+/* -------------------- Category chip pickers -------------------- */
+const CATEGORIES = [
+  ["Housing", "🏠"], ["Utilities", "💡"], ["Insurance", "🛡️"], ["Subscriptions", "📺"],
+  ["Phone", "📱"], ["Groceries", "🛒"], ["Transport", "🚗"], ["Dining", "🍽️"],
+  ["Debt", "💳"], ["Health", "🏥"], ["Other", "📦"],
+];
+function initCatPickers() {
+  $$("[data-catpicker]").forEach((picker) => {
+    picker.innerHTML = `<input type="hidden" name="category" value="">` +
+      CATEGORIES.map(([c, i]) => `<button type="button" class="cat-chip" data-cat="${c}">${i} ${c}</button>`).join("");
   });
+}
+function resetCatPicker(form) {
+  const picker = form.querySelector("[data-catpicker]");
+  if (!picker) return;
+  picker.querySelectorAll(".cat-chip.active").forEach((c) => c.classList.remove("active"));
+  const hidden = picker.querySelector("input[name=category]");
+  if (hidden) hidden.value = "";
+}
+document.addEventListener("click", (e) => {
+  const chip = e.target.closest(".cat-chip");
+  if (!chip) return;
+  const picker = chip.closest("[data-catpicker]");
+  picker.querySelectorAll(".cat-chip").forEach((c) => c.classList.remove("active"));
+  chip.classList.add("active");
+  picker.querySelector("input[name=category]").value = chip.dataset.cat;
 });
 
 /* -------------------- Render -------------------- */
@@ -242,6 +277,16 @@ function renderSetup() {
     }).join("");
   } else {
     gCard.style.display = "none";
+  }
+
+  // Pre-fill the savings goal with the recommended "put back" amount, so there's less to type.
+  const savMonthly = $("#savings-form [name=monthly]");
+  const savName = $("#savings-form [name=name]");
+  if (g && g.ready && g.recommendedSavings > 0) {
+    if (savMonthly && !savMonthly.value && document.activeElement !== savMonthly)
+      savMonthly.value = Math.round(g.recommendedSavings);
+    if (savName && !savName.value && document.activeElement !== savName)
+      savName.value = "Savings";
   }
 
   // bills — split into fixed and variable
@@ -477,6 +522,7 @@ $("#bill-form").addEventListener("submit", (e) => {
     dueDay: f.dueDay.value, autopay: f.autopay.checked,
   });
   f.reset();
+  resetCatPicker(f);
   toast("Bill added");
 });
 
@@ -490,6 +536,7 @@ $("#varbill-form").addEventListener("submit", (e) => {
     dueDay: f.dueDay.value, autopay: f.autopay.checked,
   });
   f.reset();
+  resetCatPicker(f);
   toast("Variable bill added");
 });
 
@@ -919,6 +966,66 @@ async function load() {
   STATE = data.state; SUMMARY = data.summary;
   render();
 }
+/* -------------------- Can I afford it? -------------------- */
+let affordPending = null;
+function capFirst(s) { return s ? s.charAt(0).toUpperCase() + s.slice(1) : s; }
+$("#afford-form").addEventListener("submit", (e) => {
+  e.preventDefault();
+  const f = e.target;
+  const price = Number(f.price.value);
+  if (!price || price <= 0) return;
+  renderAfford(f.item.value.trim(), price);
+});
+function renderAfford(itemRaw, price) {
+  const s = SUMMARY;
+  const item = itemRaw || "that";
+  const available = s.remainingThisMonth;   // free-to-spend still left this month
+  const daily = s.dailyAllowance;
+  $("#afford-result").style.display = "block";
+  const vEl = $("#afford-verdict"), dEl = $("#afford-detail"), logBtn = $("#afford-log");
+  let cls, head, detail, canLog = false;
+
+  if (s.income === 0) {
+    cls = "afford-no"; head = "Add your income first";
+    detail = "Head to Income & Bills so Float knows your budget, then check back.";
+  } else if (available <= 0) {
+    cls = "afford-no"; head = "⛔ Not right now";
+    detail = "You've used up your free-to-spend for this month." +
+      (daily > 0 ? ` About ${fmt(daily)} frees up each day as the month rolls on.` : "");
+  } else if (price <= available) {
+    canLog = true;
+    if (price <= daily) {
+      cls = "afford-yes"; head = "✅ Easy yes";
+      detail = `${capFirst(item)} fits inside today's ${fmt(daily)} allowance. You'd still have ${fmt(available - price)} free this month.`;
+    } else if (price <= available * 0.5) {
+      cls = "afford-yes"; head = "✅ Yes — go for it";
+      detail = `After buying ${item} you'd still have ${fmt(available - price)} of your ${fmt(available)} free-to-spend left this month.`;
+    } else {
+      cls = "afford-tight"; head = "⚠️ Yes, but it's a big chunk";
+      detail = `${capFirst(item)} is ${fmt(price)} of the ${fmt(available)} you have free this month — you'd have ${fmt(available - price)} left. Doable, but a lean rest of the month.`;
+    }
+  } else {
+    const shortfall = price - available;
+    const days = daily > 0 ? Math.ceil(shortfall / daily) : null;
+    cls = "afford-no"; head = "⛔ Not this month";
+    detail = `${capFirst(item)} is ${fmt(price)} — that's ${fmt(shortfall)} more than the ${fmt(available)} you have free this month.` +
+      (days ? ` Setting aside your ${fmt(daily)}/day allowance, you could cover it in about ${days} day${days > 1 ? "s" : ""}.` : "");
+  }
+  vEl.className = "afford-verdict " + cls;
+  vEl.textContent = head;
+  dEl.textContent = detail;
+  logBtn.style.display = canLog ? "" : "none";
+  affordPending = canLog ? { item, price } : null;
+}
+$("#afford-log").addEventListener("click", () => {
+  if (!affordPending) return;
+  api("/api/spending", "POST", { amount: affordPending.price, category: "Purchase", note: affordPending.item });
+  toast("Logged — enjoy it!");
+  $("#afford-result").style.display = "none";
+  $("#afford-form").reset();
+  affordPending = null;
+});
+
 // Light/dark toggle (initial theme is set by the inline script in <head>)
 $("#theme-toggle").addEventListener("click", () => {
   const next = document.documentElement.getAttribute("data-theme") === "dark" ? "light" : "dark";
@@ -927,5 +1034,6 @@ $("#theme-toggle").addEventListener("click", () => {
   if (SUMMARY) renderPie(); // recolor the chart for the new surface
 });
 
+initCatPickers();
 loadKey();
 load();

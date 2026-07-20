@@ -18,26 +18,29 @@
 <div id="app">
   <header class="topbar">
     <div class="topbar-top">
-      <div class="brand">
-        <span class="logo">◈</span>
-        <span>Float</span>
-      </div>
+      <button class="menu-btn" id="menu-btn" aria-label="Open menu"><span></span><span></span><span></span></button>
+      <div class="brand"><span class="logo">◈</span><span id="section-title">Today</span></div>
       <button class="theme-toggle" id="theme-toggle" role="switch" aria-label="Toggle light or dark mode" title="Light / dark mode">
         <span class="tt-ico tt-sun">☀️</span>
         <span class="tt-ico tt-moon">🌙</span>
         <span class="tt-thumb"></span>
       </button>
     </div>
-    <nav class="tabs">
-      <button class="tab active" data-tab="dashboard">Today</button>
-      <button class="tab" data-tab="setup">Income &amp; Bills</button>
-      <button class="tab" data-tab="plan">Plan</button>
-      <button class="tab" data-tab="car">Car</button>
-      <button class="tab" data-tab="receipts">Receipts</button>
-      <button class="tab" data-tab="microfunds">Micro-funds</button>
-      <button class="tab" data-tab="sandbox">Sandbox</button>
-    </nav>
   </header>
+
+  <div class="drawer" id="drawer">
+    <nav class="drawer-panel">
+      <div class="drawer-head"><span class="logo">◈</span><span>Float</span></div>
+      <button class="nav-item active" data-tab="dashboard" data-title="Today"><span class="nav-ico">🏠</span>Today</button>
+      <button class="nav-item" data-tab="setup" data-title="Income &amp; Bills"><span class="nav-ico">📋</span>Income &amp; Bills</button>
+      <button class="nav-item" data-tab="plan" data-title="Plan"><span class="nav-ico">🗓️</span>Plan</button>
+      <button class="nav-item" data-tab="afford" data-title="Can I afford it?"><span class="nav-ico">🛒</span>Can I afford it?</button>
+      <button class="nav-item" data-tab="car" data-title="Car"><span class="nav-ico">🚗</span>Car</button>
+      <button class="nav-item" data-tab="receipts" data-title="Receipts"><span class="nav-ico">🧾</span>Receipts</button>
+      <button class="nav-item" data-tab="microfunds" data-title="Micro-funds"><span class="nav-ico">🎯</span>Micro-funds</button>
+      <button class="nav-item" data-tab="sandbox" data-title="Sandbox"><span class="nav-ico">🔮</span>Sandbox</button>
+    </nav>
+  </div>
 
   <main>
     <!-- ================= DASHBOARD ================= -->
@@ -126,17 +129,12 @@
         <form id="bill-form" class="row wrap">
           <input type="text" name="name" placeholder="Name (e.g. Rent)" required>
           <input type="number" step="0.01" name="amount" placeholder="Amount" required>
-          <input type="text" name="category" placeholder="Category" list="cat-list">
           <input type="number" name="dueDay" min="1" max="31" placeholder="Due day (1–31)" style="max-width:150px">
           <label class="check"><input type="checkbox" name="autopay"> Autopay</label>
           <label class="check"><input type="checkbox" name="cancellable"> Cancellable</label>
+          <div class="cat-picker" data-catpicker></div>
           <button class="btn primary" type="submit">Add bill</button>
         </form>
-        <datalist id="cat-list">
-          <option>Housing</option><option>Utilities</option><option>Insurance</option>
-          <option>Subscriptions</option><option>Phone</option><option>Debt</option>
-          <option>Groceries</option><option>Transport</option>
-        </datalist>
         <p class="muted small">Mark streaming, apps, gym, and other easy-to-drop items as
           <b>cancellable</b> — those are what we suggest cutting first if you're overspending.</p>
         <div class="bill-list" id="bills-table"></div>
@@ -150,11 +148,11 @@
         <form id="varbill-form" class="row wrap">
           <input type="text" name="name" placeholder="Name (e.g. Electric)" required>
           <input type="number" step="0.01" name="amount" placeholder="Typical amount" required>
-          <input type="text" name="category" placeholder="Category" list="cat-list">
           <input type="number" step="0.01" name="low" placeholder="Low $ (opt)" style="max-width:130px">
           <input type="number" step="0.01" name="high" placeholder="High $ (opt)" style="max-width:130px">
           <input type="number" name="dueDay" min="1" max="31" placeholder="Due day" style="max-width:120px">
           <label class="check"><input type="checkbox" name="autopay"> Autopay</label>
+          <div class="cat-picker" data-catpicker></div>
           <button class="btn primary" type="submit">Add variable bill</button>
         </form>
         <p class="muted small">Budgeted at the typical amount — Float reminds you to keep a cushion
@@ -209,6 +207,25 @@
       <div class="card" id="payplan-card">
         <div class="card-head"><h2>Your month, paycheck by paycheck</h2></div>
         <div id="payplan"></div>
+      </div>
+    </section>
+
+    <!-- ================= AFFORD ================= -->
+    <section class="view" id="view-afford">
+      <div class="card">
+        <div class="card-head"><h2>Can I afford it?</h2></div>
+        <p class="muted">Eyeing a purchase? Drop it in and Float checks it against the money you
+          have free to spend this month — a straight yes or no.</p>
+        <form id="afford-form" class="row wrap">
+          <input type="text" name="item" placeholder="What is it? (e.g. new headphones)">
+          <input type="number" step="0.01" name="price" placeholder="Price" required>
+          <button class="btn primary" type="submit">Check it</button>
+        </form>
+      </div>
+      <div class="card" id="afford-result" style="display:none">
+        <div class="afford-verdict" id="afford-verdict"></div>
+        <p id="afford-detail" class="lead"></p>
+        <button class="btn" id="afford-log" style="display:none">✓ Log this purchase</button>
       </div>
     </section>
 
