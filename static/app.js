@@ -51,9 +51,64 @@ $$(".tab").forEach((tab) => {
 function render() {
   if (!STATE) return;
   renderDashboard();
+  renderPie();
   renderSetup();
+  renderPlan();
   renderCar();
   renderMicrofunds();
+}
+
+/* -------------------- Pie chart (SVG donut) -------------------- */
+// Validated categorical palette (dataviz skill), fixed order — never cycled.
+const PIE_COLORS = ["#2a78d6", "#1baf7a", "#eda100", "#008300", "#4a3aa7", "#e34948", "#e87ba4", "#eb6834"];
+const OTHER_COLOR = "#8b98a9";
+
+function polar(cx, cy, r, frac) {
+  const a = 2 * Math.PI * frac - Math.PI / 2;
+  return [cx + r * Math.cos(a), cy + r * Math.sin(a)];
+}
+
+function renderPie() {
+  const chart = $("#pie-chart");
+  const legend = $("#pie-legend");
+  const items = (SUMMARY.outflow && SUMMARY.outflow.items) || [];
+  if (!items.length || SUMMARY.income === 0) {
+    chart.innerHTML = "";
+    legend.innerHTML = `<div class="empty">Add income and bills to see where your money goes.</div>`;
+    return;
+  }
+  const size = 200, cx = size / 2, cy = size / 2, r = 92, inner = 56;
+  let acc = 0;
+  const segs = items.map((it, i) => {
+    const start = acc; acc += it.pct; const end = acc;
+    const color = it.category === "Other" ? OTHER_COLOR : PIE_COLORS[i % PIE_COLORS.length];
+    if (it.pct >= 0.999) { // single full slice -> ring, avoids degenerate arc
+      return `<circle cx="${cx}" cy="${cy}" r="${(r + inner) / 2}" fill="none" stroke="${color}" stroke-width="${r - inner}"/>`;
+    }
+    const [x1, y1] = polar(cx, cy, r, start);
+    const [x2, y2] = polar(cx, cy, r, end);
+    const [x3, y3] = polar(cx, cy, inner, end);
+    const [x4, y4] = polar(cx, cy, inner, start);
+    const large = end - start > 0.5 ? 1 : 0;
+    return `<path d="M ${x1} ${y1} A ${r} ${r} 0 ${large} 1 ${x2} ${y2} L ${x3} ${y3} A ${inner} ${inner} 0 ${large} 0 ${x4} ${y4} Z" fill="${color}"/>`;
+  }).join("");
+
+  chart.innerHTML =
+    `<svg viewBox="0 0 ${size} ${size}" width="200" height="200" role="img" aria-label="Monthly money breakdown">
+      ${segs}
+      <text x="${cx}" y="${cy - 6}" text-anchor="middle" class="pie-center-top">Income</text>
+      <text x="${cx}" y="${cy + 16}" text-anchor="middle" class="pie-center-val">${fmt0(SUMMARY.outflow.total)}</text>
+    </svg>`;
+
+  legend.innerHTML = items.map((it, i) => {
+    const color = it.category === "Other" ? OTHER_COLOR : PIE_COLORS[i % PIE_COLORS.length];
+    return `<div class="legend-row">
+      <span class="legend-dot" style="background:${color}"></span>
+      <span class="legend-name">${escapeHtml(it.category)}</span>
+      <span class="legend-pct">${Math.round(it.pct * 100)}%</span>
+      <span class="legend-amt">${fmt0(it.amount)}</span>
+    </div>`;
+  }).join("");
 }
 
 function renderDashboard() {
@@ -61,7 +116,7 @@ function renderDashboard() {
   const daily = s.dailyAllowance;
   const el = $("#daily-allowance");
   el.textContent = fmt0(daily);
-  el.style.color = daily < 0 ? "var(--danger)" : "#eafff2";
+  el.style.color = daily < 0 ? "var(--danger)" : "var(--accent)";
 
   $("#daily-sub").textContent = s.income === 0
     ? "Add your income to get started →"
@@ -144,9 +199,13 @@ function renderSetup() {
   }
   STATE.bills.forEach((b) => {
     const tr = document.createElement("tr");
+    const due = b.dueDay ? `due ${ordinal(b.dueDay)}` : "no date";
     tr.innerHTML = `
       <td>${escapeHtml(b.name)}</td>
       <td><span class="tag">${escapeHtml(b.category)}</span></td>
+      <td><span class="tag">${due}</span></td>
+      <td><span class="tag ${b.autopay ? "auto" : ""}" data-autopay="${b.id}" style="cursor:pointer">
+        ${b.autopay ? "⟳ autopay" : "manual"}</span></td>
       <td><span class="tag ${b.cancellable ? "can" : ""}" data-toggle="${b.id}" style="cursor:pointer">
         ${b.cancellable ? "✓ cancellable" : "fixed"}</span></td>
       <td class="amt">${fmt(b.amount)}</td>
@@ -256,6 +315,77 @@ function escapeHtml(s) {
   ));
 }
 
+function ordinal(n) {
+  const s = ["th", "st", "nd", "rd"], v = n % 100;
+  return n + (s[(v - 20) % 10] || s[v] || s[0]);
+}
+
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+function prettyDate(iso) {
+  const [y, m, d] = iso.split("-").map(Number);
+  return `${MONTHS[m - 1]} ${ordinal(d)}`;
+}
+
+/* -------------------- Plan tab -------------------- */
+function renderPlan() {
+  // reflect saved schedule in the form
+  const sched = STATE.paySchedule || { frequency: "none", anchor: null };
+  const freqSel = $("#pay-frequency");
+  if (freqSel && document.activeElement !== freqSel) freqSel.value = sched.frequency || "none";
+  const anchorInp = $("#pay-anchor");
+  if (anchorInp && document.activeElement !== anchorInp && sched.anchor) anchorInp.value = sched.anchor;
+
+  // Upcoming reminders
+  const up = SUMMARY.upcoming || [];
+  const list = $("#upcoming-list");
+  if (!up.length) {
+    list.innerHTML = `<div class="empty">Add a due day to your bills (Income &amp; Bills tab) and they'll show up here.</div>`;
+  } else {
+    list.innerHTML = up.map((u) => {
+      const when = u.daysUntil === 0 ? "today" : u.daysUntil === 1 ? "tomorrow" : `in ${u.daysUntil} days`;
+      const soon = u.daysUntil <= 3;
+      return `<div class="mini-item">
+        <span><b class="${soon ? "due-soon" : ""}">${escapeHtml(u.name)}</b>
+          <span class="muted small">${u.autopay ? "· autopays" : ""}</span></span>
+        <span>${fmt(u.amount)} <span class="muted small">${when}</span></span>
+      </div>`;
+    }).join("");
+  }
+
+  // Paycheck-by-paycheck plan
+  const plan = SUMMARY.payPlan;
+  const box = $("#payplan");
+  if (!plan || !plan.configured) {
+    box.innerHTML = `<div class="empty">Set your pay schedule above to get a paycheck-by-paycheck plan for the month.</div>`;
+    return;
+  }
+  let html = `<p class="muted small">Paid ${plan.freqLabel.toLowerCase()} · about ${fmt(plan.perCheck)} per paycheck. Here's what to set aside from each one this month:</p>`;
+  if (plan.carryover.length) {
+    const names = plan.carryover.map((b) => `${escapeHtml(b.name)} (${fmt(b.amount)}, due ${ordinal(b.dueDay)})`).join(", ");
+    html += `<div class="rec warning">Due before your first paycheck this month — cover from your last check: ${names}.</div>`;
+  }
+  html += plan.checks.map((c) => {
+    const bills = c.bills.length
+      ? c.bills.map((b) => `<div class="pc-bill"><span>${escapeHtml(b.name)} <span class="muted small">due ${ordinal(b.dueDay)}${b.autopay ? " · auto" : ""}</span></span><span>${fmt(b.amount)}</span></div>`).join("")
+      : `<div class="muted small">No bills due before your next paycheck — this one's yours.</div>`;
+    return `<div class="paycheck">
+      <div class="pc-head">
+        <div><b>${prettyDate(c.date)}</b> <span class="muted small">paycheck</span></div>
+        <div class="pc-amt">${fmt(c.perCheck)}</div>
+      </div>
+      <div class="pc-bills">${bills}</div>
+      <div class="pc-foot">
+        <span>Set aside <b>${fmt(c.billsTotal)}</b></span>
+        <span class="${c.leftover < 0 ? "danger" : ""}">Leftover <b>${fmt(c.leftover)}</b></span>
+      </div>
+    </div>`;
+  }).join("");
+  if (plan.undated.length) {
+    html += `<p class="muted small">No due day set (not scheduled): ${plan.undated.map((b) => escapeHtml(b.name)).join(", ")} — add a due day so they land in the plan.</p>`;
+  }
+  box.innerHTML = html;
+}
+
 /* -------------------- Event wiring -------------------- */
 
 // Income
@@ -272,6 +402,7 @@ $("#bill-form").addEventListener("submit", (e) => {
   api("/api/bills", "POST", {
     name: f.name.value, amount: f.amount.value,
     category: f.category.value || "Other", cancellable: f.cancellable.checked,
+    dueDay: f.dueDay.value, autopay: f.autopay.checked,
   });
   f.reset();
   toast("Bill added");
@@ -321,6 +452,69 @@ $("#microfund-form").addEventListener("submit", (e) => {
   toast("Micro-fund created");
 });
 
+// Pay schedule
+$("#payday-form").addEventListener("submit", (e) => {
+  e.preventDefault();
+  const f = e.target;
+  api("/api/payschedule", "POST", { frequency: f.frequency.value, anchor: f.anchor.value });
+  toast("Pay schedule saved");
+});
+
+/* -------------------- Notifications (Capacitor on device, web fallback) -------------------- */
+function hasCapacitorNotifs() {
+  return !!(window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.LocalNotifications);
+}
+async function enableNotifications() {
+  const status = $("#notif-status");
+  const upcoming = (SUMMARY.upcoming || []).filter((u) => !u.autopay); // autopay bills don't need a nudge
+
+  if (hasCapacitorNotifs()) {
+    const LN = window.Capacitor.Plugins.LocalNotifications;
+    try {
+      const perm = await LN.requestPermissions();
+      if (perm.display !== "granted") { status.textContent = "Notifications are turned off in your phone settings."; return; }
+      // Clear any we scheduled before, then schedule a 9am reminder the day before each due date.
+      const notifications = upcoming.map((u, i) => {
+        const at = dueReminderDate(u.dueDay);
+        return {
+          id: 1000 + i,
+          title: `${u.name} is due soon`,
+          body: `${u.name} (${fmt(u.amount)}) is due ${ordinal(u.dueDay)}. Tap to review in Float.`,
+          schedule: { at },
+        };
+      });
+      if (notifications.length) await LN.schedule({ notifications });
+      status.textContent = `On — you'll get a reminder the day before each of your ${notifications.length} manual bills.`;
+      toast("Reminders on");
+    } catch (err) {
+      status.textContent = "Couldn't set up notifications: " + err.message;
+    }
+    return;
+  }
+
+  // Web fallback (preview in a browser): request permission and demo the next reminder.
+  if (!("Notification" in window)) { status.textContent = "This browser can't show notifications — the phone app can."; return; }
+  const perm = await Notification.requestPermission();
+  if (perm !== "granted") { status.textContent = "Notifications blocked. You can enable them in your browser settings."; return; }
+  if (upcoming.length) {
+    const u = upcoming[0];
+    new Notification("Float reminder", { body: `${u.name} (${fmt(u.amount)}) is due ${ordinal(u.dueDay)}.` });
+    status.textContent = `On (preview). On your phone these fire automatically the day before each bill. Next up: ${u.name}.`;
+  } else {
+    status.textContent = "On. Add bills with due days and you'll be reminded before each one.";
+  }
+  toast("Reminders on");
+}
+// Next occurrence of a due day, at 9am, one day early.
+function dueReminderDate(dueDay) {
+  const now = new Date();
+  let d = new Date(now.getFullYear(), now.getMonth(), dueDay, 9, 0, 0);
+  d.setDate(d.getDate() - 1); // day before
+  if (d < now) d = new Date(now.getFullYear(), now.getMonth() + 1, dueDay - 1, 9, 0, 0);
+  return d;
+}
+$("#enable-notifs").addEventListener("click", enableNotifications);
+
 // Reset
 $("#reset-btn").addEventListener("click", () => {
   if (confirm("Erase all your data and start fresh?")) {
@@ -336,6 +530,7 @@ document.addEventListener("click", (e) => {
   else if (t.dataset.delSavings) api("/api/savings/" + t.dataset.delSavings, "DELETE");
   else if (t.dataset.delSpend) api("/api/spending/" + t.dataset.delSpend, "DELETE");
   else if (t.dataset.toggle) api("/api/bills/toggle", "POST", { id: t.dataset.toggle });
+  else if (t.dataset.autopay) api("/api/bills/autopay", "POST", { id: t.dataset.autopay });
   else if (t.dataset.archive) { api("/api/microfunds/archive", "POST", { id: t.dataset.archive }); toast("Archived"); }
   else if (t.dataset.fund) {
     const input = $(`[data-fund-input="${t.dataset.fund}"]`);

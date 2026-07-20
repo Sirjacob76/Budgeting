@@ -10,11 +10,12 @@
 
   const DEFAULT_STATE = {
     income: { monthly: 0 },
-    bills: [],
+    bills: [],            // {id, name, amount, category, cancellable, dueDay, autopay}
     car: null,
     savingsGoals: [],
     spending: [],
     microfunds: [],
+    paySchedule: { frequency: "none", anchor: null }, // weekly|biweekly|semimonthly|monthly
     settings: { currency: "$" },
     streak: { current: 0, best: 0 },
   };
@@ -47,6 +48,10 @@
     d.setUTCDate(d.getUTCDate() + delta);
     return d.toISOString().slice(0, 10);
   }
+  function dateDiffDays(a, b) {
+    return Math.round((new Date(b + "T00:00:00Z") - new Date(a + "T00:00:00Z")) / 86400000);
+  }
+  const pad2 = (n) => String(n).padStart(2, "0");
 
   /* ------------------------- formatting ------------------------- */
   function money(x) {
@@ -68,6 +73,117 @@
   const totalSavings = (s) => sum(s.savingsGoals, (g) => Number(g.monthly));
   const carPayment = (s) => (s.car ? Number(s.car.payment) : 0);
   const spentThisMonth = (s, t) => sum(s.spending.filter((x) => inCurrentMonth(x.date, t)), (x) => Number(x.amount));
+
+  /* ------------------------- pie: where the money goes ------------------------- */
+  function outflowBreakdown(state) {
+    const income = Number(state.income.monthly);
+    const map = {};
+    for (const b of state.bills) {
+      const c = (b.category || "Other").trim() || "Other";
+      map[c] = (map[c] || 0) + Number(b.amount);
+    }
+    if (state.car) map["Car"] = (map["Car"] || 0) + Number(state.car.payment);
+    const savings = totalSavings(state);
+    if (savings > 0) map["Savings"] = (map["Savings"] || 0) + savings;
+    const fixed = totalBills(state) + carPayment(state) + savings;
+    const free = income - fixed;
+    if (free > 0) map["Free to spend"] = free;
+
+    let items = Object.entries(map)
+      .filter(([, v]) => v > 0)
+      .map(([category, amount]) => ({ category, amount }))
+      .sort((a, b) => b.amount - a.amount);
+
+    // Fold the long tail into "Other" so the pie stays legible.
+    const MAX = 7;
+    if (items.length > MAX + 1) {
+      const head = items.slice(0, MAX);
+      const otherAmt = items.slice(MAX).reduce((a, b) => a + b.amount, 0);
+      head.push({ category: "Other", amount: otherAmt });
+      items = head;
+    }
+    const total = items.reduce((a, b) => a + b.amount, 0) || 1;
+    items.forEach((it) => { it.pct = it.amount / total; });
+    return { total, items };
+  }
+
+  /* ------------------------- pay schedule + payment plan ------------------------- */
+  function perCheckAmount(income, freq) {
+    switch (freq) {
+      case "weekly": return income * 12 / 52;
+      case "biweekly": return income * 12 / 26;
+      case "semimonthly": return income / 2;
+      case "monthly": return income;
+      default: return 0;
+    }
+  }
+  const freqLabel = { weekly: "Weekly", biweekly: "Every 2 weeks", semimonthly: "Twice a month", monthly: "Monthly" };
+
+  function paydaysInMonth(schedule, t) {
+    const freq = schedule && schedule.frequency;
+    if (!freq || freq === "none") return [];
+    const [y, m] = t.split("-").map(Number);
+    const dim = daysInMonth(t);
+    const ms = `${y}-${pad2(m)}-01`;
+    const me = `${y}-${pad2(m)}-${pad2(dim)}`;
+    const out = [];
+
+    if (freq === "monthly") {
+      const aDay = schedule.anchor ? Number(schedule.anchor.split("-")[2]) : 1;
+      out.push(`${y}-${pad2(m)}-${pad2(Math.min(aDay, dim))}`);
+    } else if (freq === "semimonthly") {
+      out.push(`${y}-${pad2(m)}-15`, me);
+    } else {
+      const step = freq === "weekly" ? 7 : 14;
+      const anchor = schedule.anchor || ms;
+      const k = Math.ceil(dateDiffDays(anchor, ms) / step); // first aligned payday >= month start
+      let d = addDays(anchor, k * step);
+      while (d <= me) { if (d >= ms) out.push(d); d = addDays(d, step); }
+    }
+    return out.filter((d) => d >= ms && d <= me).sort();
+  }
+
+  function billLite(b) {
+    return { id: b.id, name: b.name, amount: Number(b.amount), dueDay: b.dueDay || null, autopay: !!b.autopay, category: b.category };
+  }
+
+  function computePayPlan(state, t) {
+    const freq = (state.paySchedule && state.paySchedule.frequency) || "none";
+    if (freq === "none") return { configured: false };
+    const income = Number(state.income.monthly);
+    const perCheck = perCheckAmount(income, freq);
+    const paydays = paydaysInMonth(state.paySchedule, t);
+    const dim = daysInMonth(t);
+
+    const dated = state.bills.filter((b) => b.dueDay);
+    const undated = state.bills.filter((b) => !b.dueDay).map(billLite);
+    const checks = paydays.map((d, i) => ({
+      date: d, day: Number(d.split("-")[2]), perCheck, bills: [], billsTotal: 0,
+      nextDay: i + 1 < paydays.length ? Number(paydays[i + 1].split("-")[2]) : dim + 1,
+    }));
+    const carryover = [];
+
+    for (const b of dated) {
+      let idx = -1;
+      for (let i = 0; i < checks.length; i++) if (checks[i].day <= b.dueDay) idx = i;
+      if (idx === -1) carryover.push(billLite(b));
+      else { checks[idx].bills.push(billLite(b)); checks[idx].billsTotal += Number(b.amount); }
+    }
+    checks.forEach((c) => { c.leftover = c.perCheck - c.billsTotal; c.bills.sort((a, b) => a.dueDay - b.dueDay); });
+    return { configured: true, frequency: freq, freqLabel: freqLabel[freq], perCheck, checks, carryover, undated };
+  }
+
+  function upcomingBills(state, t) {
+    const todayDay = Number(t.split("-")[2]);
+    const dim = daysInMonth(t);
+    const list = [];
+    for (const b of state.bills) {
+      if (!b.dueDay) continue;
+      const daysUntil = b.dueDay >= todayDay ? Math.min(b.dueDay, dim) - todayDay : (dim - todayDay) + b.dueDay;
+      list.push({ id: b.id, name: b.name, amount: Number(b.amount), dueDay: b.dueDay, autopay: !!b.autopay, category: b.category, daysUntil });
+    }
+    return list.sort((a, b) => a.daysUntil - b.daysUntil);
+  }
 
   function computeSummary(state, t) {
     const income = Number(state.income.monthly);
@@ -100,6 +216,9 @@
       recommendations: buildRecommendations(state, income, pool),
       car_analysis: analyzeCar(state, income, pool),
       streak: computeStreak(state, baselineDaily, t),
+      outflow: outflowBreakdown(state),
+      payPlan: computePayPlan(state, t),
+      upcoming: upcomingBills(state, t),
     };
   }
 
@@ -261,17 +380,31 @@
       case "/api/income":
         state.income.monthly = Number(body.monthly || 0);
         return stateResult(state, t);
-      case "/api/bills":
+      case "/api/bills": {
+        let dueDay = parseInt(body.dueDay, 10);
+        dueDay = dueDay >= 1 && dueDay <= 31 ? dueDay : null;
         state.bills.push({
           id: newId(),
           name: String(body.name || "Bill").trim() || "Bill",
           amount: Number(body.amount || 0),
           category: String(body.category || "Other").trim() || "Other",
           cancellable: Boolean(body.cancellable),
+          dueDay,
+          autopay: Boolean(body.autopay),
         });
         return stateResult(state, t);
+      }
       case "/api/bills/toggle":
         for (const b of state.bills) if (b.id === body.id) b.cancellable = !b.cancellable;
+        return stateResult(state, t);
+      case "/api/bills/autopay":
+        for (const b of state.bills) if (b.id === body.id) b.autopay = !b.autopay;
+        return stateResult(state, t);
+      case "/api/payschedule":
+        state.paySchedule = {
+          frequency: ["weekly", "biweekly", "semimonthly", "monthly"].includes(body.frequency) ? body.frequency : "none",
+          anchor: /^\d{4}-\d{2}-\d{2}$/.test(body.anchor || "") ? body.anchor : null,
+        };
         return stateResult(state, t);
       case "/api/car":
         if (body.clear) state.car = null;

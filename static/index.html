@@ -16,6 +16,7 @@
     <nav class="tabs">
       <button class="tab active" data-tab="dashboard">Today</button>
       <button class="tab" data-tab="setup">Income &amp; Bills</button>
+      <button class="tab" data-tab="plan">Plan</button>
       <button class="tab" data-tab="car">Car</button>
       <button class="tab" data-tab="receipts">Receipts</button>
       <button class="tab" data-tab="microfunds">Micro-funds</button>
@@ -54,6 +55,14 @@
           <span class="pill" id="status-pill">—</span>
         </div>
         <div id="recommendations"></div>
+      </div>
+
+      <div class="card" id="pie-card">
+        <div class="card-head"><h2>Where your money goes</h2></div>
+        <div class="pie-wrap">
+          <div class="pie-chart" id="pie-chart"></div>
+          <div class="pie-legend" id="pie-legend"></div>
+        </div>
       </div>
 
       <div class="grid-2">
@@ -97,6 +106,8 @@
           <input type="text" name="name" placeholder="Name (e.g. Rent)" required>
           <input type="number" step="0.01" name="amount" placeholder="Amount" required>
           <input type="text" name="category" placeholder="Category" list="cat-list">
+          <input type="number" name="dueDay" min="1" max="31" placeholder="Due day (1–31)" style="max-width:150px">
+          <label class="check"><input type="checkbox" name="autopay"> Autopay</label>
           <label class="check"><input type="checkbox" name="cancellable"> Cancellable</label>
           <button class="btn primary" type="submit">Add bill</button>
         </form>
@@ -121,6 +132,42 @@
         <p class="muted small">These come off the top before your daily allowance is calculated —
           pay yourself first.</p>
         <table class="tbl" id="savings-table"></table>
+      </div>
+    </section>
+
+    <!-- ================= PLAN ================= -->
+    <section class="view" id="view-plan">
+      <div class="card">
+        <div class="card-head"><h2>Your paydays</h2></div>
+        <p class="muted">Tell Float when you get paid and it builds a plan for which bills to cover
+          from each paycheck — so nothing sneaks up on you mid-month.</p>
+        <form id="payday-form" class="row wrap">
+          <select name="frequency" id="pay-frequency">
+            <option value="none">How often are you paid?</option>
+            <option value="weekly">Weekly</option>
+            <option value="biweekly">Every 2 weeks</option>
+            <option value="semimonthly">Twice a month (15th &amp; last)</option>
+            <option value="monthly">Monthly</option>
+          </select>
+          <label class="field-label">Most recent payday
+            <input type="date" name="anchor" id="pay-anchor">
+          </label>
+          <button class="btn primary" type="submit">Save schedule</button>
+        </form>
+      </div>
+
+      <div class="card" id="reminders-card">
+        <div class="card-head">
+          <h2>Bill reminders</h2>
+          <button class="btn ghost tiny" id="enable-notifs">Turn on notifications</button>
+        </div>
+        <p class="muted small" id="notif-status"></p>
+        <div id="upcoming-list" class="mini-list"></div>
+      </div>
+
+      <div class="card" id="payplan-card">
+        <div class="card-head"><h2>Your month, paycheck by paycheck</h2></div>
+        <div id="payplan"></div>
       </div>
     </section>
 

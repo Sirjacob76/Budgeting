@@ -42,8 +42,9 @@ in the browser via [`static/engine.js`](static/engine.js).
 
 | Tab | What it does |
 |-----|--------------|
-| **Today** | Your guilt-free daily allowance (income − bills − savings, split over the days left, with unspent money rolling into tomorrow). Budget verdict + cancel recommendations. Streak tracker. Quick-log a purchase. |
-| **Income & Bills** | Enter income, recurring bills (flag the cancellable ones), and automated savings goals. |
+| **Today** | Your guilt-free daily allowance (income − bills − savings, split over the days left, with unspent money rolling into tomorrow). Budget verdict + cancel recommendations. A **"where your money goes" pie chart**. Streak tracker. Quick-log a purchase. |
+| **Income & Bills** | Enter income, recurring bills (with a **due day** and **autopay** flag), and automated savings goals. |
+| **Plan** | Set your **payday schedule** (weekly / biweekly / twice-a-month / monthly) and Float builds a **paycheck-by-paycheck plan** — which bills to cover from each check and what's left over. Plus **bill reminders**: on the phone it sends a notification the day before each non-autopay bill is due. |
 | **Car** | Affordability verdict vs. the ~15%-of-income guideline, plus tailored options: refinance, extend the term, or sell/trade — with an underwater warning if you owe more than it's worth. |
 | **Receipts** | Snap/upload a receipt photo and **Google Gemini reads it automatically** — splitting one purchase into editable line items across categories — or paste text as a fallback. Save them all to spending in one shot. |
 | **Micro-funds** | Spin up a one-off event fund ("Sarah's Bachelorette"), fund it by redirecting from your daily allowance, archive it when it's over so your core budget stays clean. |
@@ -59,6 +60,15 @@ in the browser via [`static/engine.js`](static/engine.js).
 - **Streak** counts consecutive days you stayed under a flat daily target. Float praises streaks
   and stays quiet on overspend days — building, not nagging.
 - **Car** uses standard loan amortization to model refinance/extend scenarios.
+- **Payment plan** finds your paydays for the month, then assigns each bill to the last paycheck
+  that arrives before its due date (bills due before your first check are flagged as "cover from
+  last paycheck"). Per-check net pay is derived from your monthly income and pay frequency.
+- **Notifications** use Capacitor Local Notifications on Android — scheduled for 9am the day
+  before each non-autopay bill's due date. In a desktop browser they fall back to the Web
+  Notifications API for a preview.
+
+The look is a **neumorphic (soft-UI) theme** — one background color with paired light/dark
+shadows for a soft 3D feel.
 
 ## Receipt OCR (Google Gemini)
 

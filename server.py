@@ -369,6 +369,11 @@ class Handler(http.server.SimpleHTTPRequestHandler):
     def log_message(self, fmt, *args):
         pass  # keep the console quiet
 
+    def end_headers(self):
+        # Local preview only: never cache, so edits show up on reload.
+        self.send_header("Cache-Control", "no-store, must-revalidate")
+        super().end_headers()
+
     # ---- helpers ---- #
     def _json(self, obj, code=200):
         body = json.dumps(obj).encode("utf-8")
@@ -562,10 +567,12 @@ def sandbox_result(state, data):
 
 
 def main():
+    import sys
+    port = int(sys.argv[1]) if len(sys.argv) > 1 else PORT
     os.chdir(STATIC_DIR)
-    with socketserver.ThreadingTCPServer(("", PORT), Handler) as httpd:
+    with socketserver.ThreadingTCPServer(("", port), Handler) as httpd:
         httpd.allow_reuse_address = True
-        print(f"Float is running at http://localhost:{PORT}")
+        print(f"Float is running at http://localhost:{port}")
         print("Press Ctrl+C to stop.")
         try:
             httpd.serve_forever()
