@@ -197,6 +197,26 @@ function renderDashboard() {
 function renderSetup() {
   $("#income-input").value = STATE.income.monthly || "";
 
+  // "Your plan" guidance card
+  const g = SUMMARY.guidance;
+  const gCard = $("#guidance-card");
+  if (g && g.ready) {
+    gCard.style.display = "block";
+    $("#plan-breakdown").innerHTML = `
+      <div class="stat"><div class="stat-label">Left after bills</div>
+        <div class="stat-value ${g.leftAfterBills < 0 ? "danger" : ""}">${fmt0(g.leftAfterBills)}</div></div>
+      <div class="stat"><div class="stat-label">Put back (save)</div>
+        <div class="stat-value">${fmt0(g.recommendedSavings)}</div></div>
+      <div class="stat"><div class="stat-label">Free to spend</div>
+        <div class="stat-value accent">${fmt0(g.recommendedSpend)}</div></div>`;
+    $("#guidance-notes").innerHTML = g.notes.map((n) => {
+      const cls = n.type === "alert" ? "alert" : n.type === "good" ? "good" : n.type === "warning" ? "warning" : "action";
+      return `<div class="rec ${cls}">${escapeHtml(n.text)}</div>`;
+    }).join("");
+  } else {
+    gCard.style.display = "none";
+  }
+
   // bills
   const bt = $("#bills-table");
   bt.innerHTML = "";

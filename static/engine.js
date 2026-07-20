@@ -185,6 +185,62 @@
     return list.sort((a, b) => a.daysUntil - b.daysUntil);
   }
 
+  /* ------------------------- income & bills guidance ------------------------- */
+  // "After bills, here's what's left, what to put back, and what you can spend."
+  // Anchored on the 50/30/20 rule (≤50% needs, ~20% savings, the rest to spend).
+  function budgetGuidance(state, t) {
+    const income = Number(state.income.monthly);
+    const obligations = totalBills(state) + carPayment(state); // bills + car (not savings)
+    const leftAfterBills = income - obligations;
+    const currentSavings = totalSavings(state);
+    const billsPct = income > 0 ? obligations / income : 0;
+
+    // Recommend 20% of income, but never more than what's left, and honor a bigger
+    // self-set savings amount if they've already chosen one.
+    const target = 0.20 * income;
+    const recommendedSavings = Math.max(0, Math.min(Math.max(target, currentSavings), Math.max(0, leftAfterBills)));
+    const recommendedSpend = Math.max(0, leftAfterBills - recommendedSavings);
+    const perDay = recommendedSpend / daysInMonth(t);
+
+    if (income <= 0) return { ready: false };
+
+    const notes = [];
+    // 1) Bills level
+    if (leftAfterBills < 0) {
+      notes.push({ type: "alert", text:
+        `Your bills (${money(obligations)}) cost more than your income (${money(income)}) — ` +
+        `you're ${money(-leftAfterBills)} short before saving anything. Cutting fixed costs is the priority.` });
+    } else if (billsPct <= 0.5) {
+      notes.push({ type: "good", text: `Your bills are ${pct(billsPct)} of your income — comfortably within the ~50% healthy range.` });
+    } else if (billsPct <= 0.65) {
+      notes.push({ type: "warning", text: `Your bills take ${pct(billsPct)} of income, above the ~50% target. Trimming cancellable items would free up room to save and spend.` });
+    } else {
+      notes.push({ type: "alert", text: `Your bills are ${pct(billsPct)} of income — very high. There's little left over; consider cutting the cancellable ones.` });
+    }
+
+    // 2) Savings ("put back")
+    if (leftAfterBills > 0) {
+      const idealSave = Math.min(target, leftAfterBills);
+      if (currentSavings >= target && currentSavings > 0) {
+        notes.push({ type: "good", text: `You're putting back ${money(currentSavings)}/mo (${pct(currentSavings / income)}) — at or above the 20% guideline. Nice.` });
+      } else if (currentSavings > 0) {
+        notes.push({ type: "action", text: `You've set ${money(currentSavings)}/mo in savings. Nudging it toward ${money(idealSave)} would hit the recommended 20%.` });
+      } else {
+        notes.push({ type: "action", text: `Aim to put back about ${money(idealSave)}/mo (20%) before you spend. Add it under "Automated savings goals" below so it comes off the top.` });
+      }
+    }
+
+    // 3) Spend
+    if (recommendedSpend > 0) {
+      notes.push({ type: "action", text: `That leaves about ${money(recommendedSpend)}/mo to spend freely — roughly ${money(perDay)}/day.` });
+    }
+
+    return {
+      ready: true, income, obligations, leftAfterBills, currentSavings,
+      recommendedSavings, recommendedSpend, billsPct, perDay, notes,
+    };
+  }
+
   function computeSummary(state, t) {
     const income = Number(state.income.monthly);
     const bills = totalBills(state);
@@ -219,6 +275,7 @@
       outflow: outflowBreakdown(state),
       payPlan: computePayPlan(state, t),
       upcoming: upcomingBills(state, t),
+      guidance: budgetGuidance(state, t),
     };
   }
 
