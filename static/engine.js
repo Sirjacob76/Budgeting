@@ -69,7 +69,9 @@
     return (principal * r) / (1 - Math.pow(1 + r, -months));
   }
   const sum = (arr, f) => arr.reduce((a, b) => a + f(b), 0);
-  const totalBills = (s) => sum(s.bills, (b) => Number(b.amount));
+  // Paid-off bills are done — they no longer cost anything, so they drop out of every total.
+  const activeBills = (s) => s.bills.filter((b) => !b.paidOff);
+  const totalBills = (s) => sum(activeBills(s), (b) => Number(b.amount));
   const totalSavings = (s) => sum(s.savingsGoals, (g) => Number(g.monthly));
   const carPayment = (s) => (s.car ? Number(s.car.payment) : 0);
   const spentThisMonth = (s, t) => sum(s.spending.filter((x) => inCurrentMonth(x.date, t)), (x) => Number(x.amount));
@@ -78,7 +80,7 @@
   function outflowBreakdown(state) {
     const income = Number(state.income.monthly);
     const map = {};
-    for (const b of state.bills) {
+    for (const b of activeBills(state)) {
       const c = (b.category || "Other").trim() || "Other";
       map[c] = (map[c] || 0) + Number(b.amount);
     }
@@ -155,8 +157,8 @@
     const paydays = paydaysInMonth(state.paySchedule, t);
     const dim = daysInMonth(t);
 
-    const dated = state.bills.filter((b) => b.dueDay);
-    const undated = state.bills.filter((b) => !b.dueDay).map(billLite);
+    const dated = activeBills(state).filter((b) => b.dueDay);
+    const undated = activeBills(state).filter((b) => !b.dueDay).map(billLite);
     const checks = paydays.map((d, i) => ({
       date: d, day: Number(d.split("-")[2]), perCheck, bills: [], billsTotal: 0,
       nextDay: i + 1 < paydays.length ? Number(paydays[i + 1].split("-")[2]) : dim + 1,
@@ -178,7 +180,7 @@
     const dim = daysInMonth(t);
     const list = [];
     for (const b of state.bills) {
-      if (!b.dueDay) continue;
+      if (!b.dueDay || b.paidOff) continue;
       const daysUntil = b.dueDay >= todayDay ? Math.min(b.dueDay, dim) - todayDay : (dim - todayDay) + b.dueDay;
       list.push({ id: b.id, name: b.name, amount: Number(b.amount), dueDay: b.dueDay, autopay: !!b.autopay, category: b.category, daysUntil });
     }
@@ -294,7 +296,7 @@
       `You're overpaying by ${money(deficit)} every month — your fixed bills, car, and ` +
       `savings exceed your income.` });
 
-    const cancellable = state.bills.filter((b) => b.cancellable).sort((a, b) => Number(b.amount) - Number(a.amount));
+    const cancellable = state.bills.filter((b) => b.cancellable && !b.paidOff).sort((a, b) => Number(b.amount) - Number(a.amount));
     let covered = 0; const chosen = [];
     for (const b of cancellable) { if (covered >= deficit) break; chosen.push(b); covered += Number(b.amount); }
     if (chosen.length) {
@@ -448,11 +450,15 @@
           cancellable: Boolean(body.cancellable),
           dueDay,
           autopay: Boolean(body.autopay),
+          paidOff: false,
         });
         return stateResult(state, t);
       }
       case "/api/bills/toggle":
         for (const b of state.bills) if (b.id === body.id) b.cancellable = !b.cancellable;
+        return stateResult(state, t);
+      case "/api/bills/paidoff":
+        for (const b of state.bills) if (b.id === body.id) b.paidOff = !b.paidOff;
         return stateResult(state, t);
       case "/api/bills/autopay":
         for (const b of state.bills) if (b.id === body.id) b.autopay = !b.autopay;

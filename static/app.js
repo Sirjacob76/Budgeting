@@ -37,6 +37,33 @@ function toast(msg) {
   t._t = setTimeout(() => t.classList.remove("show"), 1800);
 }
 
+/* -------------------- Paid-off celebration -------------------- */
+function celebratePaidOff(bill) {
+  $("#celebrate-text").innerHTML =
+    `<b>${escapeHtml(bill.name)}</b> is paid off — that's <b>${fmt(bill.amount)}/mo</b> ` +
+    `back in your pocket, freed up to save or spend.`;
+  $("#celebrate").classList.add("show");
+  launchConfetti();
+}
+function launchConfetti() {
+  const box = $("#confetti");
+  const colors = ["#1fb877", "#2a78d6", "#eda100", "#e34948", "#e87ba4", "#4a3aa7", "#eb6834"];
+  box.innerHTML = "";
+  for (let i = 0; i < 46; i++) {
+    const p = document.createElement("div");
+    p.className = "confetti";
+    p.style.left = Math.random() * 100 + "%";
+    p.style.background = colors[i % colors.length];
+    p.style.animationDelay = (Math.random() * 0.4).toFixed(2) + "s";
+    p.style.animationDuration = (1.7 + Math.random() * 1.3).toFixed(2) + "s";
+    box.appendChild(p);
+  }
+  setTimeout(() => { box.innerHTML = ""; }, 3400);
+}
+function closeCelebrate() { $("#celebrate").classList.remove("show"); $("#confetti").innerHTML = ""; }
+$("#celebrate-close").addEventListener("click", closeCelebrate);
+$("#celebrate").addEventListener("click", (e) => { if (e.target.id === "celebrate") closeCelebrate(); });
+
 /* -------------------- Tabs -------------------- */
 $$(".tab").forEach((tab) => {
   tab.addEventListener("click", () => {
@@ -225,9 +252,11 @@ function renderSetup() {
   }
   STATE.bills.forEach((b) => {
     const tr = document.createElement("tr");
+    if (b.paidOff) tr.className = "paid-off";
     const due = b.dueDay ? `due ${ordinal(b.dueDay)}` : "no date";
+    const paidBadge = b.paidOff ? ` <span class="tag paid">🎉 paid off</span>` : "";
     tr.innerHTML = `
-      <td>${escapeHtml(b.name)}</td>
+      <td>${escapeHtml(b.name)}${paidBadge}</td>
       <td><span class="tag">${escapeHtml(b.category)}</span></td>
       <td><span class="tag">${due}</span></td>
       <td><span class="tag ${b.autopay ? "auto" : ""}" data-autopay="${b.id}" style="cursor:pointer">
@@ -235,7 +264,11 @@ function renderSetup() {
       <td><span class="tag ${b.cancellable ? "can" : ""}" data-toggle="${b.id}" style="cursor:pointer">
         ${b.cancellable ? "✓ cancellable" : "fixed"}</span></td>
       <td class="amt">${fmt(b.amount)}</td>
-      <td><button class="icon-btn" data-del-bill="${b.id}">✕</button></td>`;
+      <td class="row-actions">
+        <button class="icon-btn paidoff-btn ${b.paidOff ? "is-paid" : ""}" data-paidoff="${b.id}"
+          title="${b.paidOff ? "Paid off — tap to undo" : "Mark this bill paid off"}">${b.paidOff ? "↩" : "🏁"}</button>
+        <button class="icon-btn" data-del-bill="${b.id}">✕</button>
+      </td>`;
     bt.appendChild(tr);
   });
   $("#bills-total").textContent = STATE.bills.length ? "Total bills: " + fmt(SUMMARY.bills) : "";
@@ -557,6 +590,14 @@ document.addEventListener("click", (e) => {
   else if (t.dataset.delSpend) api("/api/spending/" + t.dataset.delSpend, "DELETE");
   else if (t.dataset.toggle) api("/api/bills/toggle", "POST", { id: t.dataset.toggle });
   else if (t.dataset.autopay) api("/api/bills/autopay", "POST", { id: t.dataset.autopay });
+  else if (t.dataset.paidoff) {
+    const bill = STATE.bills.find((b) => b.id === t.dataset.paidoff);
+    const wasPaid = bill && bill.paidOff;
+    api("/api/bills/paidoff", "POST", { id: t.dataset.paidoff }).then(() => {
+      if (bill && !wasPaid) celebratePaidOff(bill);
+      else toast("Back to owing");
+    });
+  }
   else if (t.dataset.archive) { api("/api/microfunds/archive", "POST", { id: t.dataset.archive }); toast("Archived"); }
   else if (t.dataset.fund) {
     const input = $(`[data-fund-input="${t.dataset.fund}"]`);
