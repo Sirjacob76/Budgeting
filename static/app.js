@@ -250,15 +250,15 @@ function renderSetup() {
 
   const bt = $("#bills-table");
   bt.innerHTML = fixedBills.length
-    ? fixedBills.map((b) => `<tr class="${b.paidOff ? "paid-off" : ""}">${billRowHtml(b)}</tr>`).join("")
-    : `<tr><td class="empty">No fixed bills yet. Add rent, phone, subscriptions…</td></tr>`;
+    ? fixedBills.map(billCardHtml).join("")
+    : `<div class="empty">No fixed bills yet. Add rent, phone, subscriptions…</div>`;
   const fixedTotal = fixedBills.filter((b) => !b.paidOff).reduce((a, b) => a + Number(b.amount), 0);
   $("#bills-total").textContent = fixedBills.length ? "Total fixed bills: " + fmt(fixedTotal) : "";
 
   const vt = $("#variable-table");
   vt.innerHTML = varBills.length
-    ? varBills.map((b) => `<tr>${billRowHtml(b)}</tr>`).join("")
-    : `<tr><td class="empty">No variable bills yet. Add electric, gas, water…</td></tr>`;
+    ? varBills.map(billCardHtml).join("")
+    : `<div class="empty">No variable bills yet. Add electric, gas, water…</div>`;
   const varTotal = varBills.reduce((a, b) => a + Number(b.amount), 0);
   $("#variable-total").textContent = varBills.length ? "Typical total: " + fmt(varTotal) + "/mo" : "";
 
@@ -368,25 +368,28 @@ function ordinal(n) {
   return n + (s[(v - 20) % 10] || s[v] || s[0]);
 }
 
-// One row builder for both the fixed and variable bill tables.
-function billRowHtml(b) {
+// One card builder for both the fixed and variable bill lists — reflows on mobile.
+function billCardHtml(b) {
   const due = b.dueDay ? `due ${ordinal(b.dueDay)}` : "no date";
   const paidBadge = b.paidOff ? ` <span class="tag paid">🎉 paid off</span>` : "";
   const range = (b.low != null || b.high != null)
-    ? `<div class="muted small">${b.low != null ? fmt0(b.low) : "?"}–${b.high != null ? fmt0(b.high) : "?"}</div>` : "";
-  const amtCell = b.variable ? `~${fmt(b.amount)}${range}` : fmt(b.amount);
+    ? ` <span class="muted small">(${b.low != null ? fmt0(b.low) : "?"}–${b.high != null ? fmt0(b.high) : "?"})</span>` : "";
+  const amt = b.variable ? `~${fmt(b.amount)}${range}` : fmt(b.amount);
   // "Paid off" doesn't apply to a utility that recurs forever, so hide it on variable bills.
   const paidBtn = b.variable ? "" :
     `<button class="icon-btn paidoff-btn ${b.paidOff ? "is-paid" : ""}" data-paidoff="${b.id}"
        title="${b.paidOff ? "Paid off — tap to undo" : "Mark this bill paid off"}">${b.paidOff ? "↩" : "🏁"}</button>`;
-  return `
-    <td>${escapeHtml(b.name)}${paidBadge}</td>
-    <td><span class="tag">${escapeHtml(b.category)}</span></td>
-    <td><span class="tag">${due}</span></td>
-    <td><span class="tag ${b.autopay ? "auto" : ""}" data-autopay="${b.id}" style="cursor:pointer">${b.autopay ? "⟳ autopay" : "manual"}</span></td>
-    <td><span class="tag ${b.cancellable ? "can" : ""}" data-toggle="${b.id}" style="cursor:pointer">${b.cancellable ? "✓ cancellable" : "fixed"}</span></td>
-    <td class="amt">${amtCell}</td>
-    <td class="row-actions">${paidBtn}<button class="icon-btn" data-del-bill="${b.id}">✕</button></td>`;
+  return `<div class="bill-item ${b.paidOff ? "paid-off" : ""}">
+    <div class="bi-name">${escapeHtml(b.name)}${paidBadge}</div>
+    <div class="bi-amt">${amt}</div>
+    <div class="bi-actions">${paidBtn}<button class="icon-btn" data-del-bill="${b.id}">✕</button></div>
+    <div class="bi-tags">
+      <span class="tag">${escapeHtml(b.category)}</span>
+      <span class="tag">${due}</span>
+      <span class="tag ${b.autopay ? "auto" : ""}" data-autopay="${b.id}" style="cursor:pointer">${b.autopay ? "⟳ autopay" : "manual"}</span>
+      <span class="tag ${b.cancellable ? "can" : ""}" data-toggle="${b.id}" style="cursor:pointer">${b.cancellable ? "✓ cancellable" : "fixed"}</span>
+    </div>
+  </div>`;
 }
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];

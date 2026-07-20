@@ -179,11 +179,22 @@ select { cursor: pointer; }
 .tag.can { color: var(--warn); }
 .tag.auto { color: var(--accent-2); }
 .tag.paid { color: var(--accent-2); }
-.row-actions { white-space: nowrap; text-align: right; }
 .paidoff-btn:hover { color: var(--accent-2); box-shadow: var(--inset-sm); }
 .paidoff-btn.is-paid { color: var(--accent-2); }
-.tbl tr.paid-off td:first-child { color: var(--muted); }
-.tbl tr.paid-off .amt { text-decoration: line-through; color: var(--muted); }
+
+/* ---- Bill list (responsive cards, replaces the wide table) ---- */
+.bill-list { margin-top: 12px; }
+.bill-item {
+  display: grid; grid-template-columns: 1fr auto auto; grid-template-areas: "name amt actions" "tags tags tags";
+  gap: 6px 10px; align-items: center; padding: 12px 4px; box-shadow: inset 0 -1px 0 var(--hairline);
+}
+.bill-item:last-child { box-shadow: none; }
+.bi-name { grid-area: name; font-weight: 600; color: var(--text-strong); }
+.bi-amt { grid-area: amt; text-align: right; font-weight: 700; color: var(--text-strong); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.bi-actions { grid-area: actions; white-space: nowrap; text-align: right; }
+.bi-tags { grid-area: tags; display: flex; gap: 6px; flex-wrap: wrap; }
+.bill-item.paid-off .bi-name { color: var(--muted); }
+.bill-item.paid-off .bi-amt { text-decoration: line-through; color: var(--muted); }
 .icon-btn { background: none; border: none; color: var(--muted); cursor: pointer; font-size: 15px; padding: 6px; border-radius: 8px; }
 .icon-btn:hover { color: var(--danger); box-shadow: var(--inset-sm); }
 .totals { text-align: right; margin-top: 14px; font-weight: 800; font-size: 15px; color: var(--text-strong); }
@@ -314,3 +325,47 @@ code { background: var(--surface); padding: 3px 7px; border-radius: 6px; font-si
   opacity: 0; transition: .28s; pointer-events: none; z-index: 100; box-shadow: 6px 6px 16px rgba(120,140,170,.5);
 }
 .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+/* ============================ Mobile ============================ */
+@media (max-width: 640px) {
+  #app { padding: 0 14px 48px; }
+  .card { padding: 18px 15px; border-radius: 18px; margin-bottom: 16px; }
+  .topbar { padding: 14px 0 10px; margin-bottom: 16px; }
+  .hero { padding: 30px 16px; }
+  .hero-amount { font-size: 52px; }
+  .stat { padding: 15px 16px; }
+  .stat-value { font-size: 23px; }
+  .grid-3 { gap: 12px; }
+
+  /* Tabs: one swipeable row instead of wrapping */
+  .tabs {
+    flex-wrap: nowrap; overflow-x: auto; -webkit-overflow-scrolling: touch;
+    scrollbar-width: none; margin: 16px -14px 0; padding: 2px 14px 4px;
+  }
+  .tabs::-webkit-scrollbar { display: none; }
+  .tab { flex: 0 0 auto; }
+
+  /* Forms: every control goes full-width so nothing is squished or tiny to tap */
+  .row.wrap { gap: 10px; }
+  .row.wrap > input,
+  .row.wrap > select,
+  .row.wrap > .btn,
+  .row.wrap > .check,
+  .row.wrap > .field-label { flex: 1 1 100%; min-width: 0; }
+  .row.wrap > input[style] { max-width: none !important; }
+  .field-label input { width: 100%; }
+  .row { flex-wrap: wrap; }
+  .row > input { min-width: 140px; }
+
+  /* Bill card: keep name+amount on one line, actions and tags below */
+  .bill-item { grid-template-columns: 1fr auto; grid-template-areas: "name amt" "tags actions"; }
+  .bi-actions { align-self: end; }
+}
+
+/* Comfortable touch targets on phones/tablets */
+@media (pointer: coarse) {
+  .btn { padding: 13px 18px; }
+  .tab { padding: 11px 17px; }
+  .icon-btn { padding: 9px; font-size: 17px; }
+  input, select, textarea { padding: 13px 14px; }
+}
