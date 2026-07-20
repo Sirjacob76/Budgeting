@@ -1,0 +1,5 @@
+# Keep scripts and CI files LF so they run correctly on the Linux build runner,
+# regardless of the OS they were committed from.
+*.sh   text eol=lf
+*.yml  text eol=lf
+*.yaml text eol=lf
