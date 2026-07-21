@@ -77,9 +77,12 @@ function switchTab(name) {
   closeDrawer();
   window.scrollTo(0, 0);
 }
-$$(".nav-item").forEach((item) => item.addEventListener("click", () => switchTab(item.dataset.tab)));
+$$(".nav-item").forEach((item) => item.addEventListener("click", () => { if (item.dataset.tab) switchTab(item.dataset.tab); }));
 $("#menu-btn").addEventListener("click", openDrawer);
 $("#drawer").addEventListener("click", (e) => { if (e.target.id === "drawer") closeDrawer(); });
+$("#refresh-btn").addEventListener("click", () => { load(); closeDrawer(); toast("Refreshed"); });
+// Keep tabs in sync if the data changes in another tab of the same browser.
+window.addEventListener("storage", (e) => { if (e.key === "float.state.v1") load(); });
 
 /* -------------------- Category chip pickers -------------------- */
 const CATEGORIES = [
@@ -100,6 +103,23 @@ function resetCatPicker(form) {
   const hidden = picker.querySelector("input[name=category]");
   if (hidden) hidden.value = "";
 }
+// Inline due-day editor: tap a bill's due tag to set/change it.
+document.addEventListener("click", (e) => {
+  const tag = e.target.closest(".due-tag");
+  if (!tag || tag.querySelector("input")) return;
+  const id = tag.dataset.editdue;
+  tag.innerHTML = `<input type="number" min="1" max="31" class="due-edit" value="${tag.dataset.day || ""}" placeholder="1–31">`;
+  const inp = tag.querySelector("input");
+  inp.focus(); inp.select();
+  let done = false;
+  const save = () => { if (done) return; done = true; api("/api/bills/duedate", "POST", { id, dueDay: inp.value }); };
+  inp.addEventListener("keydown", (ev) => {
+    if (ev.key === "Enter") { ev.preventDefault(); save(); }
+    else if (ev.key === "Escape") { done = true; render(); }
+  });
+  inp.addEventListener("blur", save);
+});
+
 document.addEventListener("click", (e) => {
   const chip = e.target.closest(".cat-chip");
   if (!chip) return;
@@ -493,7 +513,7 @@ function billCardHtml(b) {
     <div class="bi-actions">${paidBtn}<button class="icon-btn" data-del-bill="${b.id}">✕</button></div>
     <div class="bi-tags">
       <span class="tag">${escapeHtml(b.category)}</span>
-      <span class="tag">${due}</span>
+      <span class="tag due-tag" data-editdue="${b.id}" data-day="${b.dueDay || ""}" style="cursor:pointer" title="Tap to set a due day">${due} ✎</span>
       <span class="tag ${b.autopay ? "auto" : ""}" data-autopay="${b.id}" style="cursor:pointer">${b.autopay ? "⟳ autopay" : "manual"}</span>
       <span class="tag ${b.cancellable ? "can" : ""}" data-toggle="${b.id}" style="cursor:pointer">${b.cancellable ? "✓ cancellable" : "fixed"}</span>
     </div>
@@ -561,7 +581,19 @@ function renderPlan() {
     </div>`;
   }).join("");
   if (plan.undated.length) {
-    html += `<p class="muted small">No due day set (not scheduled): ${plan.undated.map((b) => escapeHtml(b.name)).join(", ")} — add a due day so they land in the plan.</p>`;
+    const total = plan.undated.reduce((a, b) => a + Number(b.amount), 0);
+    const rows = plan.undated.map((b) => `<div class="pc-bill"><span>${escapeHtml(b.name)}</span><span>${fmt(b.amount)}</span></div>`).join("");
+    html += `<div class="paycheck undated-block">
+      <div class="pc-head">
+        <div><b>Not scheduled yet</b> <span class="muted small">${plan.undated.length} bill${plan.undated.length > 1 ? "s" : ""}</span></div>
+        <div class="pc-amt">${fmt(total)}</div>
+      </div>
+      <div class="pc-bills">${rows}</div>
+      <div class="undated-note">
+        <span class="muted small">These don't have a due date, so Float can't slot them into a paycheck yet.</span>
+        <button class="btn ghost tiny" data-goto="setup">Add due dates →</button>
+      </div>
+    </div>`;
   }
   box.innerHTML = html;
 }
@@ -743,6 +775,7 @@ document.addEventListener("click", (e) => {
   else if (t.dataset.delSavings) api("/api/savings/" + t.dataset.delSavings, "DELETE");
   else if (t.dataset.delSpend) api("/api/spending/" + t.dataset.delSpend, "DELETE");
   else if (t.dataset.delDebt) api("/api/debts/" + t.dataset.delDebt, "DELETE");
+  else if (t.dataset.goto) switchTab(t.dataset.goto);
   else if (t.dataset.toggle) api("/api/bills/toggle", "POST", { id: t.dataset.toggle });
   else if (t.dataset.autopay) api("/api/bills/autopay", "POST", { id: t.dataset.autopay });
   else if (t.dataset.paidoff) {

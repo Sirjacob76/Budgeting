@@ -548,6 +548,12 @@
       case "/api/bills/autopay":
         for (const b of state.bills) if (b.id === body.id) b.autopay = !b.autopay;
         return stateResult(state, t);
+      case "/api/bills/duedate": {
+        let dd = parseInt(body.dueDay, 10);
+        dd = dd >= 1 && dd <= 31 ? dd : null;
+        for (const b of state.bills) if (b.id === body.id) b.dueDay = dd;
+        return stateResult(state, t);
+      }
       case "/api/debts":
         state.debts.push({
           id: newId(),
