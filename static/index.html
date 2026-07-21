@@ -173,6 +173,23 @@
           pay yourself first.</p>
         <table class="tbl" id="savings-table"></table>
       </div>
+
+      <div class="card">
+        <div class="card-head"><h2>Backup &amp; restore</h2></div>
+        <p class="muted small">Your data lives only on this phone — nothing is uploaded anywhere.
+          <b>Save a backup before reinstalling the app</b>, or to move to a new phone.</p>
+        <div class="row wrap">
+          <button class="btn" id="backup-copy">📋 Copy backup</button>
+          <button class="btn" id="backup-download">⬇️ Save as file</button>
+        </div>
+        <textarea id="backup-text" readonly rows="4" placeholder="Tap a button above and your backup appears here — paste it somewhere safe (an email or note to yourself)."></textarea>
+
+        <p class="muted small" style="margin-top:6px">To restore, paste a backup below.
+          <b>This replaces everything currently in the app.</b></p>
+        <textarea id="restore-text" rows="4" placeholder="Paste a backup here…"></textarea>
+        <button class="btn primary" id="restore-btn">Restore from backup</button>
+        <div class="muted small" id="backup-status" style="margin-top:8px"></div>
+      </div>
     </section>
 
     <!-- ================= PLAN ================= -->

@@ -649,6 +649,23 @@
         return stateResult(state, t);
       case "/api/sandbox":
         return sandboxResult(state, body, t);
+      case "/api/import": {
+        let incoming = body.data;
+        try { if (typeof incoming === "string") incoming = JSON.parse(incoming); }
+        catch (e) { return { error: "That doesn't look like a Float backup — the text isn't valid JSON." }; }
+        if (!incoming || typeof incoming !== "object" || Array.isArray(incoming)) {
+          return { error: "That doesn't look like a Float backup." };
+        }
+        if (!("income" in incoming) && !("bills" in incoming)) {
+          return { error: "That doesn't look like a Float backup — no income or bills in it." };
+        }
+        // Start from defaults so an older backup missing newer fields still loads.
+        const merged = structuredClone(DEFAULT_STATE);
+        for (const k of Object.keys(DEFAULT_STATE)) if (k in incoming) merged[k] = incoming[k];
+        save(merged);
+        return { state: merged, summary: computeSummary(merged, t) };
+      }
+
       case "/api/reset":
         save(structuredClone(DEFAULT_STATE));
         return { ok: true };

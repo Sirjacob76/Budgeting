@@ -23,6 +23,11 @@ anything locally — a **GitHub Actions** workflow builds the APK in the cloud:
    *install from unknown sources* the first time (normal for apps not from the Play Store).
 4. Open **Float** from your app drawer. It's a real app now.
 
+> **Back up first.** Each CI build is signed with a different key, so Android can't update in
+> place — you have to uninstall, which wipes the app's data. Before reinstalling, go to
+> **Income & Bills → Backup & restore**, tap *Copy backup*, and paste it somewhere safe; after
+> installing, paste it back and hit *Restore*.
+
 > This is a debug build, signed with a standard debug key — perfect for testing on your own
 > device. A signed release build (for Play Store distribution, a one-time $25) is a later step.
 

@@ -871,6 +871,66 @@ function dueReminderDate(dueDay) {
 }
 $("#enable-notifs").addEventListener("click", enableNotifications);
 
+/* -------------------- Backup & restore -------------------- */
+function currentBackupJson() { return JSON.stringify(STATE, null, 2); }
+
+$("#backup-copy").addEventListener("click", async () => {
+  const txt = currentBackupJson();
+  $("#backup-text").value = txt;
+  try {
+    await navigator.clipboard.writeText(txt);
+    $("#backup-status").textContent = "Copied — paste it into an email or note to keep it safe.";
+    toast("Backup copied");
+  } catch (e) {
+    $("#backup-text").focus(); $("#backup-text").select();
+    $("#backup-status").textContent = "Couldn't copy automatically — the text is selected, copy it manually.";
+  }
+});
+
+$("#backup-download").addEventListener("click", () => {
+  const txt = currentBackupJson();
+  $("#backup-text").value = txt;
+  try {
+    const blob = new Blob([txt], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `float-backup-${new Date().toLocaleDateString("en-CA")}.json`;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    $("#backup-status").textContent = "Saved to your downloads.";
+    toast("Backup saved");
+  } catch (e) {
+    $("#backup-status").textContent = "Couldn't save a file here — use Copy backup instead.";
+  }
+});
+
+// Two taps to restore — safer than a dialog, and works the same in the phone app.
+let restoreArmed = false, restoreTimer = null;
+$("#restore-btn").addEventListener("click", async () => {
+  const btn = $("#restore-btn");
+  const txt = $("#restore-text").value.trim();
+  if (!txt) { $("#backup-status").textContent = "Paste a backup into the box first."; return; }
+  if (!restoreArmed) {
+    restoreArmed = true;
+    btn.textContent = "Tap again to confirm — this replaces your data";
+    clearTimeout(restoreTimer);
+    restoreTimer = setTimeout(() => { restoreArmed = false; btn.textContent = "Restore from backup"; }, 6000);
+    return;
+  }
+  clearTimeout(restoreTimer);
+  restoreArmed = false;
+  btn.textContent = "Restore from backup";
+  const res = await api("/api/import", "POST", { data: txt });
+  if (res && res.error) {
+    $("#backup-status").textContent = "⚠️ " + res.error;
+  } else {
+    $("#restore-text").value = "";
+    $("#backup-status").textContent = "Restored ✓ — everything's back.";
+    toast("Data restored");
+  }
+});
+
 // Reset
 $("#reset-btn").addEventListener("click", () => {
   if (confirm("Erase all your data and start fresh?")) {
@@ -1189,9 +1249,9 @@ $$(".preset").forEach((btn) => btn.addEventListener("click", () => {
 
 /* -------------------- Boot -------------------- */
 async function load() {
-  const data = await api("/api/state");
-  STATE = data.state; SUMMARY = data.summary;
-  render();
+  // api() already assigns STATE/SUMMARY and re-renders. Re-assigning them here from a
+  // snapshot taken before the await could clobber a newer write that landed in between.
+  await api("/api/state");
 }
 /* -------------------- Can I afford it? -------------------- */
 let affordPending = null;
