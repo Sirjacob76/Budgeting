@@ -254,9 +254,20 @@
       notes.push({ type: "action", text: `That leaves about ${money(recommendedSpend)}/mo to spend freely — roughly ${money(perDay)}/day.` });
     }
 
+    // Which bills to knock out first — smallest payment first (snowball applied to
+    // bills). Variable bills (electric, gas) are excluded: you can't "pay off" a utility.
+    const payoffOrder = activeBills(state)
+      .filter((b) => !b.variable)
+      .map((b) => ({ id: b.id, name: b.name, amount: Number(b.amount), category: b.category }))
+      .sort((a, b) => a.amount - b.amount)
+      .map((b, i) => ({ ...b, rank: i + 1 }));
+    const cleared = state.bills.filter((b) => b.paidOff);
+    const clearedFreed = cleared.reduce((a, b) => a + Number(b.amount), 0);
+
     return {
       ready: true, income, obligations, leftAfterBills, currentSavings,
       recommendedSavings, recommendedSpend, billsPct, perDay, notes,
+      payoffOrder, clearedCount: cleared.length, clearedFreed,
     };
   }
 

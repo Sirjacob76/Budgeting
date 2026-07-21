@@ -420,6 +420,7 @@ function renderSetup() {
       const cls = n.type === "alert" ? "alert" : n.type === "good" ? "good" : n.type === "warning" ? "warning" : "action";
       return `<div class="rec ${cls}">${escapeHtml(n.text)}</div>`;
     }).join("");
+    renderPayoffOrder(g);
   } else {
     gCard.style.display = "none";
   }
@@ -556,6 +557,37 @@ function escapeHtml(s) {
 function ordinal(n) {
   const s = ["th", "st", "nd", "rd"], v = n % 100;
   return n + (s[(v - 20) % 10] || s[v] || s[0]);
+}
+
+// "Pay these off first" — your bills ordered smallest payment to largest.
+function renderPayoffOrder(g) {
+  const box = $("#payoff-order");
+  const po = g.payoffOrder || [];
+  if (!po.length) { box.innerHTML = ""; return; }
+
+  const first = po[0];
+  const next = po[1];
+  let html = `<div class="payoff-head">Pay these off first <span class="muted small">smallest to largest</span></div>
+    <p class="muted small">Knocking out the smallest bills first frees up their payment the fastest — then you roll that money into the next one.</p>`;
+
+  if (g.clearedCount) {
+    html += `<div class="rec good">You've already cleared ${g.clearedCount} bill${g.clearedCount > 1 ? "s" : ""}, freeing up ${fmt(g.clearedFreed)}/mo. Keep going!</div>`;
+  }
+  html += `<div class="rec action"><b>Start with ${escapeHtml(first.name)}</b> (${fmt(first.amount)}/mo).` +
+    (next ? ` Once it's gone, put that ${fmt(first.amount)} straight toward ${escapeHtml(next.name)}.` : ` That's your last one — clear it and you're free.`) +
+    `</div>`;
+
+  html += `<div class="bill-list">` + po.map((b) => `
+    <div class="bill-item">
+      <div class="bi-name"><span class="debt-rank ${b.rank === 1 ? "first" : ""}">${b.rank}</span>${escapeHtml(b.name)}</div>
+      <div class="bi-amt">${fmt(b.amount)}</div>
+      <div class="bi-actions"><button class="icon-btn paidoff-btn" data-paidoff="${b.id}" title="Mark paid off">🏁</button></div>
+      <div class="bi-tags"><span class="tag">${escapeHtml(b.category)}</span></div>
+    </div>`).join("") + `</div>`;
+
+  html += `<p class="muted small" style="margin-top:12px">Owe balances on loans or cards? The
+    <button class="btn ghost tiny" data-goto="debt">Get out of debt →</button> tab plans by what you owe.</p>`;
+  box.innerHTML = html;
 }
 
 // One card builder for both the fixed and variable bill lists — reflows on mobile.

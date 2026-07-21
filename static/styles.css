@@ -143,6 +143,12 @@ body {
 }
 .debt-rank.first { color: var(--accent-ink); background: var(--accent); box-shadow: none; }
 
+.payoff-head {
+  display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;
+  font-size: 16px; font-weight: 700; color: var(--text-strong);
+  margin: 22px 0 4px; padding-top: 18px; box-shadow: inset 0 1px 0 var(--hairline);
+}
+
 /* Can I afford it? */
 .afford-verdict { font-size: 27px; font-weight: 800; letter-spacing: -.02em; margin-bottom: 8px; }
 .afford-verdict.afford-yes { color: var(--accent-2); }
