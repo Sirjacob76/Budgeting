@@ -116,8 +116,71 @@ function render() {
   renderPie();
   renderSetup();
   renderPlan();
+  renderDebt();
   renderCar();
   renderMicrofunds();
+}
+
+/* -------------------- Debt payoff planner -------------------- */
+function freeIn(months) {
+  if (months == null) return "—";
+  const y = Math.floor(months / 12), m = months % 12;
+  if (y === 0) return `${m} mo`;
+  if (m === 0) return `${y} yr`;
+  return `${y} yr ${m} mo`;
+}
+function monthsToDate(months) {
+  const now = new Date();
+  const d = new Date(now.getFullYear(), now.getMonth() + months, 1);
+  return `${MONTHS[d.getMonth()]} ${d.getFullYear()}`;
+}
+function renderDebt() {
+  const p = SUMMARY.debtPlan;
+  const card = $("#debt-plan-card");
+  if (!p || !p.hasDebts) { card.style.display = "none"; return; }
+  card.style.display = "block";
+
+  $$("#debt-method .seg-btn").forEach((b) => b.classList.toggle("active", b.dataset.method === p.method));
+
+  const extraInp = $("#debt-extra");
+  if (document.activeElement !== extraInp && !extraInp.value && p.extra > 0) extraInp.value = Math.round(p.extra);
+  const free = SUMMARY.guidance && SUMMARY.guidance.ready ? SUMMARY.guidance.recommendedSpend : 0;
+  $("#debt-extra-hint").textContent = free > 0
+    ? `You have about ${fmt(free)}/mo free to spend — even part of it here speeds this up a lot.` : "";
+
+  $("#debt-summary").innerHTML = `
+    <div class="stat"><div class="stat-label">Total you owe</div><div class="stat-value danger">${fmt0(p.totalOwed)}</div></div>
+    <div class="stat"><div class="stat-label">Paying / month</div><div class="stat-value">${fmt0(p.monthlyTotal)}</div></div>
+    <div class="stat"><div class="stat-label">Debt-free in</div><div class="stat-value accent">${p.feasible ? freeIn(p.months) : "—"}</div></div>`;
+
+  const instr = $("#debt-instruction");
+  if (!p.feasible) {
+    instr.innerHTML = `<div class="rec alert">Right now your payments barely cover the interest, so this never quite gets paid off. Add minimum payments to each debt, or raise the extra amount above, to build a real plan.</div>`;
+  } else {
+    const f = p.focus;
+    instr.innerHTML = `<div class="rec good"><b>Attack ${escapeHtml(f.name)} first</b> (${fmt(f.balance)}). Pay the minimum on everything else and throw every spare dollar at it. When it's gone, roll that whole payment into the next debt — you'll be debt-free around <b>${monthsToDate(p.months)}</b>${p.totalInterest > 0 ? `, paying about ${fmt(p.totalInterest)} in interest` : ""}.</div>`;
+  }
+
+  $("#debt-list").innerHTML = p.ordered.map((d) => {
+    const when = d.paidMonth ? `paid ~${monthsToDate(d.paidMonth)}` : "";
+    const aprTag = d.apr > 0 ? `<span class="tag">${d.apr}% APR</span>` : "";
+    const carTag = d.fromCar ? `<span class="tag">from Car tab</span>` : "";
+    const del = d.fromCar ? "" : `<button class="icon-btn" data-del-debt="${d.id}">✕</button>`;
+    return `<div class="bill-item">
+      <div class="bi-name"><span class="debt-rank ${d.rank === 1 ? "first" : ""}">${d.rank}</span>${escapeHtml(d.name)}</div>
+      <div class="bi-amt">${fmt(d.balance)}</div>
+      <div class="bi-actions">${del}</div>
+      <div class="bi-tags">${aprTag}${carTag}${when ? `<span class="tag ${d.rank === 1 ? "auto" : ""}">${when}</span>` : ""}</div>
+    </div>`;
+  }).join("");
+
+  const cmp = $("#debt-compare");
+  if (p.anyApr && p.snowMonths && p.avaMonths) {
+    const saves = (p.snowInterest || 0) - (p.avaInterest || 0);
+    cmp.innerHTML = `<p class="muted small">💡 <b>Smallest-first</b> gives you quick early wins to stay motivated. <b>Highest-APR first</b> would ${saves > 1 ? `save about ${fmt(saves)} in interest` : "finish about the same"} — tap the toggle above to compare.</p>`;
+  } else {
+    cmp.innerHTML = "";
+  }
 }
 
 /* -------------------- Pie chart (SVG donut) -------------------- */
@@ -584,6 +647,24 @@ $("#microfund-form").addEventListener("submit", (e) => {
   toast("Micro-fund created");
 });
 
+// Debt payoff
+$("#debt-form").addEventListener("submit", (e) => {
+  e.preventDefault();
+  const f = e.target;
+  api("/api/debts", "POST", {
+    name: f.name.value, balance: f.balance.value, minPayment: f.minPayment.value, apr: f.apr.value,
+  });
+  f.reset();
+  toast("Debt added");
+});
+$("#debt-extra").addEventListener("change", (e) => {
+  api("/api/debtextra", "POST", { amount: e.target.value });
+});
+$("#debt-method").addEventListener("click", (e) => {
+  const btn = e.target.closest(".seg-btn");
+  if (btn) api("/api/debtmethod", "POST", { method: btn.dataset.method });
+});
+
 // Pay schedule
 $("#payday-form").addEventListener("submit", (e) => {
   e.preventDefault();
@@ -661,6 +742,7 @@ document.addEventListener("click", (e) => {
   if (t.dataset.delBill) api("/api/bills/" + t.dataset.delBill, "DELETE");
   else if (t.dataset.delSavings) api("/api/savings/" + t.dataset.delSavings, "DELETE");
   else if (t.dataset.delSpend) api("/api/spending/" + t.dataset.delSpend, "DELETE");
+  else if (t.dataset.delDebt) api("/api/debts/" + t.dataset.delDebt, "DELETE");
   else if (t.dataset.toggle) api("/api/bills/toggle", "POST", { id: t.dataset.toggle });
   else if (t.dataset.autopay) api("/api/bills/autopay", "POST", { id: t.dataset.autopay });
   else if (t.dataset.paidoff) {

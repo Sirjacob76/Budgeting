@@ -35,6 +35,7 @@
       <button class="nav-item" data-tab="setup" data-title="Income &amp; Bills"><span class="nav-ico">📋</span>Income &amp; Bills</button>
       <button class="nav-item" data-tab="plan" data-title="Plan"><span class="nav-ico">🗓️</span>Plan</button>
       <button class="nav-item" data-tab="afford" data-title="Can I afford it?"><span class="nav-ico">🛒</span>Can I afford it?</button>
+      <button class="nav-item" data-tab="debt" data-title="Get out of debt"><span class="nav-ico">📉</span>Get out of debt</button>
       <button class="nav-item" data-tab="car" data-title="Car"><span class="nav-ico">🚗</span>Car</button>
       <button class="nav-item" data-tab="receipts" data-title="Receipts"><span class="nav-ico">🧾</span>Receipts</button>
       <button class="nav-item" data-tab="microfunds" data-title="Micro-funds"><span class="nav-ico">🎯</span>Micro-funds</button>
@@ -226,6 +227,42 @@
         <div class="afford-verdict" id="afford-verdict"></div>
         <p id="afford-detail" class="lead"></p>
         <button class="btn" id="afford-log" style="display:none">✓ Log this purchase</button>
+      </div>
+    </section>
+
+    <!-- ================= DEBT ================= -->
+    <section class="view" id="view-debt">
+      <div class="card">
+        <div class="card-head"><h2>Get out of debt</h2></div>
+        <p class="muted">List everything you owe. Float orders them into a payoff plan — attack one
+          at a time while paying minimums on the rest. Add minimum payments to see your debt-free date.</p>
+        <form id="debt-form" class="row wrap">
+          <input type="text" name="name" placeholder="Name (e.g. Visa card)" required>
+          <input type="number" step="0.01" name="balance" placeholder="Total owed" required>
+          <input type="number" step="0.01" name="minPayment" placeholder="Min payment/mo (opt)" style="max-width:190px">
+          <input type="number" step="0.01" name="apr" placeholder="APR % (opt)" style="max-width:140px">
+          <button class="btn primary" type="submit">Add debt</button>
+        </form>
+      </div>
+
+      <div class="card" id="debt-plan-card" style="display:none">
+        <div class="card-head">
+          <h2>Your payoff plan</h2>
+          <div class="seg" id="debt-method">
+            <button type="button" class="seg-btn" data-method="snowball">❄️ Smallest first</button>
+            <button type="button" class="seg-btn" data-method="avalanche">🏔️ Highest APR</button>
+          </div>
+        </div>
+        <div class="grid-3" id="debt-summary"></div>
+        <div class="extra-row">
+          <label class="field-label" style="flex:1">Extra you can put toward debt each month
+            <input type="number" step="0.01" id="debt-extra" placeholder="e.g. 200">
+          </label>
+          <div class="muted small" id="debt-extra-hint"></div>
+        </div>
+        <div id="debt-instruction"></div>
+        <div id="debt-list" class="bill-list"></div>
+        <div id="debt-compare"></div>
       </div>
     </section>
 

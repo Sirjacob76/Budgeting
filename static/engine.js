@@ -15,6 +15,9 @@
     savingsGoals: [],
     spending: [],
     microfunds: [],
+    debts: [],            // {id, name, balance, minPayment, apr}
+    debtExtra: 0,         // extra $/mo the user can throw at debt beyond minimums
+    debtMethod: "snowball", // snowball (smallest balance first) | avalanche (highest APR first)
     paySchedule: { frequency: "none", anchor: null }, // weekly|biweekly|semimonthly|monthly
     settings: { currency: "$" },
     streak: { current: 0, best: 0 },
@@ -257,6 +260,70 @@
     };
   }
 
+  /* ------------------------- debt payoff planner ------------------------- */
+  // Month-by-month simulation. `list` must already be in attack priority order.
+  // Every debt pays its minimum; whatever's left (extra + freed minimums from
+  // paid-off debts) cascades onto the highest-priority remaining debt.
+  function simulateDebt(list, extra) {
+    const items = list.map((d) => ({ id: d.id, balance: +d.balance, min: +d.min || 0, apr: +d.apr || 0, paidMonth: null }));
+    const B = items.reduce((a, d) => a + d.min, 0) + Math.max(0, extra);
+    if (B <= 0) return { feasible: false, reason: "no-payment" };
+    let totalInterest = 0, month = 0;
+    const MAXM = 1200;
+    while (items.some((d) => d.balance > 0.005) && month < MAXM) {
+      month++;
+      for (const d of items) if (d.balance > 0) { const i = d.balance * d.apr / 1200; d.balance += i; totalInterest += i; }
+      let avail = B;
+      for (const d of items) if (d.balance > 0) { const p = Math.min(d.min, d.balance, avail); d.balance -= p; avail -= p; }
+      for (const d of items) { if (avail <= 0.005) break; if (d.balance > 0) { const p = Math.min(d.balance, avail); d.balance -= p; avail -= p; } }
+      for (const d of items) if (d.balance <= 0.005 && d.paidMonth === null) { d.paidMonth = month; d.balance = 0; }
+    }
+    const feasible = !items.some((d) => d.balance > 0.005);
+    return { feasible, months: month, totalInterest, byId: Object.fromEntries(items.map((d) => [d.id, d.paidMonth])), reason: feasible ? null : "too-low" };
+  }
+
+  function computeDebtPlan(state, t) {
+    const userDebts = (state.debts || []).map((d) => ({
+      id: d.id, name: d.name, balance: +d.balance, min: +d.minPayment || 0, apr: +d.apr || 0, fromCar: false,
+    }));
+    const all = [...userDebts];
+    // Fold in the car loan automatically if it has a balance (data we already have).
+    const car = state.car;
+    if (car && +car.balance > 0) {
+      all.push({ id: "__car", name: "Car loan", balance: +car.balance, min: +car.payment || 0, apr: +car.apr || 0, fromCar: true });
+    }
+    if (!all.length) return { hasDebts: false };
+
+    const method = state.debtMethod === "avalanche" ? "avalanche" : "snowball";
+    const extra = Math.max(0, +state.debtExtra || 0);
+    const totalOwed = all.reduce((a, d) => a + d.balance, 0);
+    const totalMin = all.reduce((a, d) => a + d.min, 0);
+    const anyApr = all.some((d) => d.apr > 0);
+
+    const sortBy = (m) => [...all].sort((a, b) =>
+      m === "avalanche" ? (b.apr - a.apr) || (a.balance - b.balance) : (a.balance - b.balance) || (b.apr - a.apr));
+    const ordered = sortBy(method);
+    const canSim = (totalMin + extra) > 0;
+    const primary = canSim ? simulateDebt(ordered, extra) : null;
+    const snow = canSim ? simulateDebt(sortBy("snowball"), extra) : null;
+    const ava = canSim && anyApr ? simulateDebt(sortBy("avalanche"), extra) : null;
+
+    return {
+      hasDebts: true, method, extra, totalOwed, totalMin, anyApr,
+      ordered: ordered.map((d, i) => ({ ...d, rank: i + 1, paidMonth: primary && primary.byId ? primary.byId[d.id] : null })),
+      feasible: primary ? primary.feasible : null,
+      months: primary ? primary.months : null,
+      totalInterest: primary ? primary.totalInterest : null,
+      monthlyTotal: totalMin + extra,
+      snowMonths: snow && snow.feasible ? snow.months : null,
+      snowInterest: snow && snow.feasible ? snow.totalInterest : null,
+      avaMonths: ava && ava.feasible ? ava.months : null,
+      avaInterest: ava && ava.feasible ? ava.totalInterest : null,
+      focus: ordered[0],
+      reason: primary && !primary.feasible ? primary.reason : null,
+    };
+  }
+
   function computeSummary(state, t) {
     const income = Number(state.income.monthly);
     const bills = totalBills(state);
@@ -292,6 +359,7 @@
       payPlan: computePayPlan(state, t),
       upcoming: upcomingBills(state, t),
       guidance: budgetGuidance(state, t),
+      debtPlan: computeDebtPlan(state, t),
     };
   }
 
@@ -443,7 +511,7 @@
     if (method === "DELETE") {
       const parts = path.replace(/^\/+|\/+$/g, "").split("/");
       if (parts.length === 3 && parts[0] === "api") {
-        const key = { bills: "bills", savings: "savingsGoals", spending: "spending" }[parts[1]];
+        const key = { bills: "bills", savings: "savingsGoals", spending: "spending", debts: "debts" }[parts[1]];
         if (key) { state[key] = state[key].filter((x) => x.id !== parts[2]); return stateResult(state, t); }
       }
       return { error: "not found" };
@@ -480,6 +548,22 @@
       case "/api/bills/autopay":
         for (const b of state.bills) if (b.id === body.id) b.autopay = !b.autopay;
         return stateResult(state, t);
+      case "/api/debts":
+        state.debts.push({
+          id: newId(),
+          name: String(body.name || "Debt").trim() || "Debt",
+          balance: Number(body.balance || 0),
+          minPayment: body.minPayment !== undefined && body.minPayment !== "" && body.minPayment !== null ? Number(body.minPayment) : 0,
+          apr: body.apr !== undefined && body.apr !== "" && body.apr !== null ? Number(body.apr) : 0,
+        });
+        return stateResult(state, t);
+      case "/api/debtextra":
+        state.debtExtra = Math.max(0, Number(body.amount || 0));
+        return stateResult(state, t);
+      case "/api/debtmethod":
+        state.debtMethod = body.method === "avalanche" ? "avalanche" : "snowball";
+        return stateResult(state, t);
+
       case "/api/payschedule":
         state.paySchedule = {
           frequency: ["weekly", "biweekly", "semimonthly", "monthly"].includes(body.frequency) ? body.frequency : "none",

@@ -126,6 +126,23 @@ body {
 .cat-chip:hover { color: var(--text); }
 .cat-chip.active { color: var(--accent-2); box-shadow: var(--inset-sm); }
 
+/* Debt payoff */
+.seg { display: flex; gap: 4px; padding: 4px; border-radius: 999px; box-shadow: var(--inset-sm); flex-wrap: wrap; }
+.seg-btn {
+  border: none; background: transparent; color: var(--muted); font-size: 12px; font-weight: 700;
+  padding: 8px 12px; border-radius: 999px; cursor: pointer; white-space: nowrap; -webkit-tap-highlight-color: transparent;
+}
+.seg-btn.active { color: var(--accent-2); background: var(--surface); box-shadow: var(--raised-xs); }
+.extra-row { display: flex; gap: 14px; align-items: flex-end; flex-wrap: wrap; margin: 4px 0 14px; }
+.extra-row .field-label { min-width: 220px; }
+.extra-row .muted { flex: 1 1 200px; padding-bottom: 12px; }
+.debt-rank {
+  display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px;
+  border-radius: 50%; background: var(--surface); box-shadow: var(--inset-sm); color: var(--muted);
+  font-size: 12px; font-weight: 800; margin-right: 9px; flex: none;
+}
+.debt-rank.first { color: var(--accent-ink); background: var(--accent); box-shadow: none; }
+
 /* Can I afford it? */
 .afford-verdict { font-size: 27px; font-weight: 800; letter-spacing: -.02em; margin-bottom: 8px; }
 .afford-verdict.afford-yes { color: var(--accent-2); }
