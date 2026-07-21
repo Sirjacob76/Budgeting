@@ -258,16 +258,22 @@
     // bills). Variable bills (electric, gas) are excluded: you can't "pay off" a utility.
     const payoffOrder = activeBills(state)
       .filter((b) => !b.variable)
-      .map((b) => ({ id: b.id, name: b.name, amount: Number(b.amount), category: b.category }))
+      .map((b) => ({ id: b.id, name: b.name, amount: Number(b.amount), category: b.category, cancellable: !!b.cancellable }))
       .sort((a, b) => a.amount - b.amount)
       .map((b, i) => ({ ...b, rank: i + 1 }));
     const cleared = state.bills.filter((b) => b.paidOff);
     const clearedFreed = cleared.reduce((a, b) => a + Number(b.amount), 0);
 
+    // How much spare cash to throw at the target bill. Half the free-to-spend keeps
+    // some breathing room while still making a real dent; rounded to a clean $5.
+    const spare = recommendedSpend;
+    const suggestedExtra = spare > 0 ? Math.max(5, Math.round((spare * 0.5) / 5) * 5) : 0;
+
     return {
       ready: true, income, obligations, leftAfterBills, currentSavings,
       recommendedSavings, recommendedSpend, billsPct, perDay, notes,
       payoffOrder, clearedCount: cleared.length, clearedFreed,
+      spare, suggestedExtra,
     };
   }
 

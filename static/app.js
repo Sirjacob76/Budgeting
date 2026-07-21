@@ -577,12 +577,29 @@ function renderPayoffOrder(g) {
     (next ? ` Once it's gone, put that ${fmt(first.amount)} straight toward ${escapeHtml(next.name)}.` : ` That's your last one — clear it and you're free.`) +
     `</div>`;
 
+  // How much extra to throw at it, out of the money left over
+  if (g.spare > 0) {
+    const extra = g.suggestedExtra;
+    const total = first.amount + extra;
+    const mult = first.amount > 0 ? total / first.amount : 0;
+    if (first.cancellable) {
+      html += `<div class="rec warning"><b>${escapeHtml(first.name)} is marked cancellable</b> — the fastest win is just cancelling it and freeing ${fmt(first.amount)}/mo instantly. If you'd rather keep it, you have ${fmt(g.spare)}/mo spare to put toward it.</div>`;
+    } else {
+      html += `<div class="rec good">You have <b>${fmt(g.spare)}/mo</b> spare after bills and savings. Put an extra <b>${fmt(extra)}</b> toward ${escapeHtml(first.name)} — that's <b>${fmt(total)}/mo</b> hitting it instead of ${fmt(first.amount)}${mult >= 1.2 ? `, roughly ${mult.toFixed(1)}× faster` : ""}. Throwing the whole ${fmt(g.spare)} at it clears it quicker still.</div>`;
+    }
+  } else {
+    html += `<div class="rec warning">There's nothing spare after bills and savings right now, so extra payments aren't realistic yet — cancelling something or trimming a variable bill is the fastest way to free money up.</div>`;
+  }
+
   html += `<div class="bill-list">` + po.map((b) => `
     <div class="bill-item">
       <div class="bi-name"><span class="debt-rank ${b.rank === 1 ? "first" : ""}">${b.rank}</span>${escapeHtml(b.name)}</div>
       <div class="bi-amt">${fmt(b.amount)}</div>
       <div class="bi-actions"><button class="icon-btn paidoff-btn" data-paidoff="${b.id}" title="Mark paid off">🏁</button></div>
-      <div class="bi-tags"><span class="tag">${escapeHtml(b.category)}</span></div>
+      <div class="bi-tags"><span class="tag">${escapeHtml(b.category)}</span>${
+        b.rank === 1 && g.suggestedExtra > 0 && !b.cancellable
+          ? `<span class="tag auto">pay ${fmt(b.amount + g.suggestedExtra)}/mo</span>` : ""
+      }${b.cancellable ? `<span class="tag can">cancellable</span>` : ""}</div>
     </div>`).join("") + `</div>`;
 
   html += `<p class="muted small" style="margin-top:12px">Owe balances on loans or cards? The
