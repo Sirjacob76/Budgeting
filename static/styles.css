@@ -392,6 +392,35 @@ code { background: var(--surface); padding: 3px 7px; border-radius: 6px; font-si
 }
 @keyframes confetti-fall { to { transform: translateY(108vh) rotate(720deg); opacity: .25; } }
 
+/* ---- Edit modal ---- */
+.modal {
+  position: fixed; inset: 0; z-index: 210; display: none; align-items: center; justify-content: center;
+  padding: 20px; background: rgba(18,22,28,.55); backdrop-filter: blur(4px); overflow-y: auto;
+}
+.modal.show { display: flex; }
+.modal-card {
+  background: var(--surface); border-radius: var(--radius); padding: 24px; width: 100%; max-width: 400px;
+  box-shadow: var(--raised); display: flex; flex-direction: column; gap: 12px;
+  animation: pop .3s cubic-bezier(.2, 1.2, .3, 1); margin: auto;
+}
+.modal-title { font-size: 18px; font-weight: 800; color: var(--text-strong); }
+.modal-card > input[type=text], .modal-card > input[type=number] { width: 100%; }
+.modal-card .row { display: flex; gap: 10px; }
+.modal-card .row > input { flex: 1; min-width: 0; }
+.modal-actions { display: flex; gap: 10px; margin-top: 6px; }
+.modal-actions .btn { flex: 1; }
+
+/* ---- Pull-to-refresh ---- */
+.pull-indicator {
+  position: fixed; top: -8px; left: 50%; transform: translateX(-50%) translateY(0); z-index: 120;
+  width: 40px; height: 40px; border-radius: 50%; background: var(--surface); box-shadow: var(--raised-sm);
+  display: flex; align-items: center; justify-content: center; color: var(--muted); font-size: 21px;
+  opacity: 0; pointer-events: none; transition: opacity .15s;
+}
+.pull-indicator.ready { color: var(--accent-2); }
+.pull-indicator.spin .pull-spinner { animation: spin .6s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
 .toast {
   position: fixed; bottom: 26px; left: 50%; transform: translateX(-50%) translateY(20px);
   background: var(--accent); color: var(--accent-ink); padding: 13px 24px; border-radius: 999px; font-weight: 700;

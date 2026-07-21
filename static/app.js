@@ -80,9 +80,52 @@ function switchTab(name) {
 $$(".nav-item").forEach((item) => item.addEventListener("click", () => { if (item.dataset.tab) switchTab(item.dataset.tab); }));
 $("#menu-btn").addEventListener("click", openDrawer);
 $("#drawer").addEventListener("click", (e) => { if (e.target.id === "drawer") closeDrawer(); });
-$("#refresh-btn").addEventListener("click", () => { load(); closeDrawer(); toast("Refreshed"); });
 // Keep tabs in sync if the data changes in another tab of the same browser.
 window.addEventListener("storage", (e) => { if (e.key === "float.state.v1") load(); });
+
+/* -------------------- Pull-to-refresh -------------------- */
+(function () {
+  const ind = $("#pull-indicator");
+  const THRESHOLD = 72;
+  let startY = 0, dist = 0, pulling = false, refreshing = false;
+  window.addEventListener("touchstart", (e) => {
+    if (refreshing || window.scrollY > 0 || e.touches.length !== 1) { pulling = false; return; }
+    startY = e.touches[0].clientY; pulling = true; dist = 0;
+  }, { passive: true });
+  window.addEventListener("touchmove", (e) => {
+    if (!pulling) return;
+    dist = e.touches[0].clientY - startY;
+    if (dist > 0 && window.scrollY <= 0) {
+      const pull = Math.min(dist * 0.5, 90);
+      ind.style.transform = `translateX(-50%) translateY(${pull}px)`;
+      ind.style.opacity = Math.min(dist / THRESHOLD, 1);
+      ind.classList.toggle("ready", dist > THRESHOLD);
+      if (dist > 6 && e.cancelable) e.preventDefault(); // stop the page from scrolling while we pull
+    } else { pulling = false; }
+  }, { passive: false });
+  function endPull() {
+    if (!pulling) return;
+    pulling = false;
+    if (dist > THRESHOLD) {
+      refreshing = true;
+      ind.classList.add("spin");
+      ind.style.transform = "translateX(-50%) translateY(46px)";
+      ind.style.opacity = "1";
+      load();
+      setTimeout(() => {
+        ind.classList.remove("spin", "ready");
+        ind.style.transform = ""; ind.style.opacity = "";
+        refreshing = false;
+        toast("Refreshed");
+      }, 550);
+    } else {
+      ind.style.transform = ""; ind.style.opacity = ""; ind.classList.remove("ready");
+    }
+    dist = 0;
+  }
+  window.addEventListener("touchend", endPull, { passive: true });
+  window.addEventListener("touchcancel", endPull, { passive: true });
+})();
 
 /* -------------------- Category chip pickers -------------------- */
 const CATEGORIES = [
@@ -103,22 +146,41 @@ function resetCatPicker(form) {
   const hidden = picker.querySelector("input[name=category]");
   if (hidden) hidden.value = "";
 }
-// Inline due-day editor: tap a bill's due tag to set/change it.
-document.addEventListener("click", (e) => {
-  const tag = e.target.closest(".due-tag");
-  if (!tag || tag.querySelector("input")) return;
-  const id = tag.dataset.editdue;
-  tag.innerHTML = `<input type="number" min="1" max="31" class="due-edit" value="${tag.dataset.day || ""}" placeholder="1–31">`;
-  const inp = tag.querySelector("input");
-  inp.focus(); inp.select();
-  let done = false;
-  const save = () => { if (done) return; done = true; api("/api/bills/duedate", "POST", { id, dueDay: inp.value }); };
-  inp.addEventListener("keydown", (ev) => {
-    if (ev.key === "Enter") { ev.preventDefault(); save(); }
-    else if (ev.key === "Escape") { done = true; render(); }
+// Edit bill: open a modal pre-filled with the bill's fields.
+function openBillEdit(id) {
+  const b = STATE.bills.find((x) => x.id === id);
+  if (!b) return;
+  const f = $("#bill-edit-form");
+  f.id.value = b.id;
+  f.name.value = b.name;
+  f.amount.value = b.amount;
+  f.amount.placeholder = b.variable ? "Typical amount" : "Amount";
+  f.dueDay.value = b.dueDay || "";
+  f.autopay.checked = !!b.autopay;
+  f.cancellable.checked = !!b.cancellable;
+  const picker = f.querySelector("[data-catpicker]");
+  picker.querySelector("input[name=category]").value = b.category || "";
+  picker.querySelectorAll(".cat-chip").forEach((c) => c.classList.toggle("active", c.dataset.cat === b.category));
+  $("#edit-range").style.display = b.variable ? "flex" : "none";
+  f.low.value = b.variable && b.low != null ? b.low : "";
+  f.high.value = b.variable && b.high != null ? b.high : "";
+  $("#bill-edit").classList.add("show");
+  f.name.focus();
+}
+$("#bill-edit-form").addEventListener("submit", (e) => {
+  e.preventDefault();
+  const f = e.target;
+  api("/api/bills/update", "POST", {
+    id: f.id.value, name: f.name.value, amount: f.amount.value,
+    category: f.querySelector("input[name=category]").value,
+    dueDay: f.dueDay.value, autopay: f.autopay.checked, cancellable: f.cancellable.checked,
+    low: f.low.value, high: f.high.value,
   });
-  inp.addEventListener("blur", save);
+  $("#bill-edit").classList.remove("show");
+  toast("Bill updated");
 });
+$("#bill-edit-cancel").addEventListener("click", () => $("#bill-edit").classList.remove("show"));
+$("#bill-edit").addEventListener("click", (e) => { if (e.target.id === "bill-edit") $("#bill-edit").classList.remove("show"); });
 
 document.addEventListener("click", (e) => {
   const chip = e.target.closest(".cat-chip");
@@ -510,10 +572,10 @@ function billCardHtml(b) {
   return `<div class="bill-item ${b.paidOff ? "paid-off" : ""}">
     <div class="bi-name">${escapeHtml(b.name)}${paidBadge}</div>
     <div class="bi-amt">${amt}</div>
-    <div class="bi-actions">${paidBtn}<button class="icon-btn" data-del-bill="${b.id}">✕</button></div>
+    <div class="bi-actions"><button class="icon-btn" data-editbill="${b.id}" title="Edit bill">✎</button>${paidBtn}<button class="icon-btn" data-del-bill="${b.id}">✕</button></div>
     <div class="bi-tags">
       <span class="tag">${escapeHtml(b.category)}</span>
-      <span class="tag due-tag" data-editdue="${b.id}" data-day="${b.dueDay || ""}" style="cursor:pointer" title="Tap to set a due day">${due} ✎</span>
+      <span class="tag">${due}</span>
       <span class="tag ${b.autopay ? "auto" : ""}" data-autopay="${b.id}" style="cursor:pointer">${b.autopay ? "⟳ autopay" : "manual"}</span>
       <span class="tag ${b.cancellable ? "can" : ""}" data-toggle="${b.id}" style="cursor:pointer">${b.cancellable ? "✓ cancellable" : "fixed"}</span>
     </div>
@@ -775,6 +837,7 @@ document.addEventListener("click", (e) => {
   else if (t.dataset.delSavings) api("/api/savings/" + t.dataset.delSavings, "DELETE");
   else if (t.dataset.delSpend) api("/api/spending/" + t.dataset.delSpend, "DELETE");
   else if (t.dataset.delDebt) api("/api/debts/" + t.dataset.delDebt, "DELETE");
+  else if (t.dataset.editbill) openBillEdit(t.dataset.editbill);
   else if (t.dataset.goto) switchTab(t.dataset.goto);
   else if (t.dataset.toggle) api("/api/bills/toggle", "POST", { id: t.dataset.toggle });
   else if (t.dataset.autopay) api("/api/bills/autopay", "POST", { id: t.dataset.autopay });

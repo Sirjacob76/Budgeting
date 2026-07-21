@@ -40,10 +40,10 @@
       <button class="nav-item" data-tab="receipts" data-title="Receipts"><span class="nav-ico">🧾</span>Receipts</button>
       <button class="nav-item" data-tab="microfunds" data-title="Micro-funds"><span class="nav-ico">🎯</span>Micro-funds</button>
       <button class="nav-item" data-tab="sandbox" data-title="Sandbox"><span class="nav-ico">🔮</span>Sandbox</button>
-      <div class="drawer-sep"></div>
-      <button class="nav-item" id="refresh-btn"><span class="nav-ico">🔄</span>Refresh</button>
     </nav>
   </div>
+
+  <div class="pull-indicator" id="pull-indicator"><span class="pull-spinner">↻</span></div>
 
   <main>
     <!-- ================= DASHBOARD ================= -->
@@ -425,6 +425,29 @@
       </div>
     </section>
   </main>
+
+  <div class="modal" id="bill-edit">
+    <form class="modal-card" id="bill-edit-form">
+      <div class="modal-title">Edit bill</div>
+      <input type="hidden" name="id">
+      <input type="text" name="name" placeholder="Name" required>
+      <input type="number" step="0.01" name="amount" placeholder="Amount" required>
+      <div class="row" id="edit-range" style="display:none">
+        <input type="number" step="0.01" name="low" placeholder="Low $ (opt)">
+        <input type="number" step="0.01" name="high" placeholder="High $ (opt)">
+      </div>
+      <input type="number" name="dueDay" min="1" max="31" placeholder="Due day (1–31), or leave blank">
+      <div class="cat-picker" data-catpicker></div>
+      <div class="row wrap">
+        <label class="check"><input type="checkbox" name="autopay"> Autopay</label>
+        <label class="check"><input type="checkbox" name="cancellable"> Cancellable</label>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="btn ghost" id="bill-edit-cancel">Cancel</button>
+        <button type="submit" class="btn primary">Save changes</button>
+      </div>
+    </form>
+  </div>
 
   <div class="celebrate" id="celebrate">
     <div class="confetti-box" id="confetti"></div>

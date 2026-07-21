@@ -554,6 +554,23 @@
         for (const b of state.bills) if (b.id === body.id) b.dueDay = dd;
         return stateResult(state, t);
       }
+      case "/api/bills/update": {
+        let dd = parseInt(body.dueDay, 10);
+        dd = dd >= 1 && dd <= 31 ? dd : null;
+        for (const b of state.bills) if (b.id === body.id) {
+          b.name = String(body.name || b.name).trim() || b.name;
+          b.amount = Number(body.amount || 0);
+          b.category = String(body.category || b.category || "Other").trim() || "Other";
+          b.dueDay = dd;
+          b.autopay = Boolean(body.autopay);
+          b.cancellable = Boolean(body.cancellable);
+          if (b.variable) {
+            b.low = body.low !== undefined && body.low !== "" && body.low !== null ? Number(body.low) : null;
+            b.high = body.high !== undefined && body.high !== "" && body.high !== null ? Number(body.high) : null;
+          }
+        }
+        return stateResult(state, t);
+      }
       case "/api/debts":
         state.debts.push({
           id: newId(),
