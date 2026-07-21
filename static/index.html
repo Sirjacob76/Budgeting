@@ -35,7 +35,6 @@
       <button class="nav-item" data-tab="setup" data-title="Income &amp; Bills"><span class="nav-ico">📋</span>Income &amp; Bills</button>
       <button class="nav-item" data-tab="plan" data-title="Plan"><span class="nav-ico">🗓️</span>Plan</button>
       <button class="nav-item" data-tab="afford" data-title="Can I afford it?"><span class="nav-ico">🛒</span>Can I afford it?</button>
-      <button class="nav-item" data-tab="debt" data-title="Get out of debt"><span class="nav-ico">📉</span>Get out of debt</button>
       <button class="nav-item" data-tab="car" data-title="Car"><span class="nav-ico">🚗</span>Car</button>
       <button class="nav-item" data-tab="receipts" data-title="Receipts"><span class="nav-ico">🧾</span>Receipts</button>
       <button class="nav-item" data-tab="microfunds" data-title="Micro-funds"><span class="nav-ico">🎯</span>Micro-funds</button>
@@ -212,29 +211,7 @@
         <div class="card-head"><h2>Your month, paycheck by paycheck</h2></div>
         <div id="payplan"></div>
       </div>
-    </section>
 
-    <!-- ================= AFFORD ================= -->
-    <section class="view" id="view-afford">
-      <div class="card">
-        <div class="card-head"><h2>Can I afford it?</h2></div>
-        <p class="muted">Eyeing a purchase? Drop it in and Float checks it against the money you
-          have free to spend this month — a straight yes or no.</p>
-        <form id="afford-form" class="row wrap">
-          <input type="text" name="item" placeholder="What is it? (e.g. new headphones)">
-          <input type="number" step="0.01" name="price" placeholder="Price" required>
-          <button class="btn primary" type="submit">Check it</button>
-        </form>
-      </div>
-      <div class="card" id="afford-result" style="display:none">
-        <div class="afford-verdict" id="afford-verdict"></div>
-        <p id="afford-detail" class="lead"></p>
-        <button class="btn" id="afford-log" style="display:none">✓ Log this purchase</button>
-      </div>
-    </section>
-
-    <!-- ================= DEBT ================= -->
-    <section class="view" id="view-debt">
       <div class="card">
         <div class="card-head"><h2>Get out of debt</h2></div>
         <p class="muted">List everything you owe. Float orders them into a payoff plan — attack one
@@ -266,6 +243,25 @@
         <div id="debt-instruction"></div>
         <div id="debt-list" class="bill-list"></div>
         <div id="debt-compare"></div>
+      </div>
+    </section>
+
+    <!-- ================= AFFORD ================= -->
+    <section class="view" id="view-afford">
+      <div class="card">
+        <div class="card-head"><h2>Can I afford it?</h2></div>
+        <p class="muted">Eyeing a purchase? Drop it in and Float checks it against the money you
+          have free to spend this month — a straight yes or no.</p>
+        <form id="afford-form" class="row wrap">
+          <input type="text" name="item" placeholder="What is it? (e.g. new headphones)">
+          <input type="number" step="0.01" name="price" placeholder="Price" required>
+          <button class="btn primary" type="submit">Check it</button>
+        </form>
+      </div>
+      <div class="card" id="afford-result" style="display:none">
+        <div class="afford-verdict" id="afford-verdict"></div>
+        <p id="afford-detail" class="lead"></p>
+        <button class="btn" id="afford-log" style="display:none">✓ Log this purchase</button>
       </div>
     </section>
 

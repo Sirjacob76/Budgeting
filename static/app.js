@@ -603,7 +603,7 @@ function renderPayoffOrder(g) {
     </div>`).join("") + `</div>`;
 
   html += `<p class="muted small" style="margin-top:12px">Owe balances on loans or cards? The
-    <button class="btn ghost tiny" data-goto="debt">Get out of debt →</button> tab plans by what you owe.</p>`;
+    <button class="btn ghost tiny" data-goto="plan">Plan tab →</button> has a payoff plan based on what you owe.</p>`;
   box.innerHTML = html;
 }
 
