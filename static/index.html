@@ -35,10 +35,8 @@
       <button class="nav-item" data-tab="setup" data-title="Income &amp; Bills"><span class="nav-ico">📋</span>Income &amp; Bills</button>
       <button class="nav-item" data-tab="plan" data-title="Plan"><span class="nav-ico">🗓️</span>Plan</button>
       <button class="nav-item" data-tab="afford" data-title="Can I afford it?"><span class="nav-ico">🛒</span>Can I afford it?</button>
-      <button class="nav-item" data-tab="car" data-title="Car"><span class="nav-ico">🚗</span>Car</button>
       <button class="nav-item" data-tab="receipts" data-title="Receipts"><span class="nav-ico">🧾</span>Receipts</button>
       <button class="nav-item" data-tab="microfunds" data-title="Micro-funds"><span class="nav-ico">🎯</span>Micro-funds</button>
-      <button class="nav-item" data-tab="sandbox" data-title="Sandbox"><span class="nav-ico">🔮</span>Sandbox</button>
     </nav>
   </div>
 
@@ -213,6 +211,35 @@
       </div>
 
       <div class="card">
+        <div class="card-head"><h2>Your car</h2></div>
+        <form id="car-form" class="grid-form">
+          <label>Monthly payment <input type="number" step="0.01" name="payment" placeholder="450"></label>
+          <label>APR % <input type="number" step="0.01" name="apr" placeholder="7"></label>
+          <label>Loan balance <input type="number" step="0.01" name="balance" placeholder="22000"></label>
+          <label>Months left <input type="number" name="termRemaining" placeholder="48"></label>
+          <label>Car's value <input type="number" step="0.01" name="value" placeholder="20000"></label>
+          <div class="form-actions">
+            <button class="btn primary" type="submit">Analyze my car</button>
+            <button class="btn ghost" type="button" id="car-clear">Remove car</button>
+          </div>
+        </form>
+        <p class="muted small">The payment also counts as a bill in your budget, and the loan is
+          folded into your payoff plan below. Balance, APR, and value let us model refinancing and
+          whether you're underwater.</p>
+      </div>
+
+      <div class="card" id="car-analysis-card" style="display:none">
+        <div class="card-head">
+          <h2>Car verdict</h2>
+          <span class="pill" id="car-pill">—</span>
+        </div>
+        <p id="car-verdict" class="lead"></p>
+        <div class="meter"><div class="meter-fill" id="car-meter"></div><div class="meter-mark"></div></div>
+        <div class="muted small" id="car-share-note"></div>
+        <ul class="options" id="car-options"></ul>
+      </div>
+
+      <div class="card">
         <div class="card-head"><h2>Get out of debt</h2></div>
         <p class="muted">List everything you owe. Float orders them into a payoff plan — attack one
           at a time while paying minimums on the rest. Add minimum payments to see your debt-free date.</p>
@@ -263,36 +290,51 @@
         <p id="afford-detail" class="lead"></p>
         <button class="btn" id="afford-log" style="display:none">✓ Log this purchase</button>
       </div>
-    </section>
 
-    <!-- ================= CAR ================= -->
-    <section class="view" id="view-car">
       <div class="card">
-        <div class="card-head"><h2>Your car</h2></div>
-        <form id="car-form" class="grid-form">
-          <label>Monthly payment <input type="number" step="0.01" name="payment" placeholder="450"></label>
-          <label>APR % <input type="number" step="0.01" name="apr" placeholder="7"></label>
-          <label>Loan balance <input type="number" step="0.01" name="balance" placeholder="22000"></label>
-          <label>Months left <input type="number" name="termRemaining" placeholder="48"></label>
-          <label>Car's value <input type="number" step="0.01" name="value" placeholder="20000"></label>
-          <div class="form-actions">
-            <button class="btn primary" type="submit">Analyze my car</button>
-            <button class="btn ghost" type="button" id="car-clear">Remove car</button>
-          </div>
-        </form>
-        <p class="muted small">The payment also counts as a bill in your budget. Balance, APR, and
-          value let us model refinancing and whether you're underwater.</p>
+        <div class="card-head"><h2>What if you financed it?</h2></div>
+        <p class="muted">For the big stuff you'd take a loan on. Model it here and feel exactly how
+          much it shrinks your guilt-free daily allowance — every day, for years.</p>
+        <div class="preset-row">
+          <button class="btn ghost preset" data-amount="30000" data-apr="7" data-term="60">$30k car @ 7% / 5yr</button>
+          <button class="btn ghost preset" data-amount="1200" data-apr="0" data-term="12">$1,200 phone / 12mo</button>
+          <button class="btn ghost preset" data-amount="15000" data-apr="9" data-term="48">$15k loan @ 9% / 4yr</button>
+        </div>
+        <div class="grid-form">
+          <label>Amount financed <input type="number" step="0.01" id="sb-amount" placeholder="30000"></label>
+          <label>APR % <input type="number" step="0.01" id="sb-apr" placeholder="7"></label>
+          <label>Term (months) <input type="number" id="sb-term" placeholder="60"></label>
+        </div>
       </div>
 
-      <div class="card" id="car-analysis-card" style="display:none">
-        <div class="card-head">
-          <h2>Verdict</h2>
-          <span class="pill" id="car-pill">—</span>
+      <div class="card" id="sandbox-result" style="display:none">
+        <div class="grid-3">
+          <div class="stat">
+            <div class="stat-label">New monthly payment</div>
+            <div class="stat-value" id="sb-payment">$0</div>
+          </div>
+          <div class="stat">
+            <div class="stat-label">Total interest</div>
+            <div class="stat-value warn" id="sb-interest">$0</div>
+          </div>
+          <div class="stat">
+            <div class="stat-label">Total cost</div>
+            <div class="stat-value" id="sb-total">$0</div>
+          </div>
         </div>
-        <p id="car-verdict" class="lead"></p>
-        <div class="meter"><div class="meter-fill" id="car-meter"></div><div class="meter-mark"></div></div>
-        <div class="muted small" id="car-share-note"></div>
-        <ul class="options" id="car-options"></ul>
+        <div class="impact">
+          <div class="impact-row">
+            <span>Daily allowance today</span>
+            <b id="sb-daily-now">$0</b>
+          </div>
+          <div class="impact-arrow">↓</div>
+          <div class="impact-row big">
+            <span>After this purchase</span>
+            <b id="sb-daily-new">$0</b>
+          </div>
+          <div class="impact-drop" id="sb-drop"></div>
+        </div>
+        <p id="sb-verdict" class="lead"></p>
       </div>
     </section>
 
@@ -373,54 +415,6 @@
       </div>
     </section>
 
-    <!-- ================= SANDBOX ================= -->
-    <section class="view" id="view-sandbox">
-      <div class="card">
-        <div class="card-head"><h2>What-if sandbox</h2></div>
-        <p class="muted">Feel a big purchase before you sign for it. Model a loan and see exactly
-          how much it shrinks your guilt-free daily allowance — every day, for years.</p>
-        <div class="preset-row">
-          <button class="btn ghost preset" data-amount="30000" data-apr="7" data-term="60">$30k car @ 7% / 5yr</button>
-          <button class="btn ghost preset" data-amount="1200" data-apr="0" data-term="12">$1,200 phone / 12mo</button>
-          <button class="btn ghost preset" data-amount="15000" data-apr="9" data-term="48">$15k loan @ 9% / 4yr</button>
-        </div>
-        <div class="grid-form">
-          <label>Amount financed <input type="number" step="0.01" id="sb-amount" placeholder="30000"></label>
-          <label>APR % <input type="number" step="0.01" id="sb-apr" placeholder="7"></label>
-          <label>Term (months) <input type="number" id="sb-term" placeholder="60"></label>
-        </div>
-      </div>
-
-      <div class="card" id="sandbox-result" style="display:none">
-        <div class="grid-3">
-          <div class="stat">
-            <div class="stat-label">New monthly payment</div>
-            <div class="stat-value" id="sb-payment">$0</div>
-          </div>
-          <div class="stat">
-            <div class="stat-label">Total interest</div>
-            <div class="stat-value warn" id="sb-interest">$0</div>
-          </div>
-          <div class="stat">
-            <div class="stat-label">Total cost</div>
-            <div class="stat-value" id="sb-total">$0</div>
-          </div>
-        </div>
-        <div class="impact">
-          <div class="impact-row">
-            <span>Daily allowance today</span>
-            <b id="sb-daily-now">$0</b>
-          </div>
-          <div class="impact-arrow">↓</div>
-          <div class="impact-row big">
-            <span>After this purchase</span>
-            <b id="sb-daily-new">$0</b>
-          </div>
-          <div class="impact-drop" id="sb-drop"></div>
-        </div>
-        <p id="sb-verdict" class="lead"></p>
-      </div>
-    </section>
   </main>
 
   <div class="modal" id="bill-edit">

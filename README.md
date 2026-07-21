@@ -47,10 +47,10 @@ in the browser via [`static/engine.js`](static/engine.js).
 | **Plan** → *Get out of debt* | (same tab) List what you owe (balances, optional min payments + APR) and Float builds a payoff plan — ordered **smallest balance first** (the snowball method) so you know exactly what to attack first, rolling each cleared payment into the next. Add minimums to get a **debt-free date** and total interest, with a snowball-vs-avalanche comparison. Your car loan is folded in automatically. |
 | **Can I afford it?** | Type in something you want to buy and its price — Float gives a straight **yes / tight / no** against the money you have free to spend this month, and can log the purchase if you go for it. |
 | **Plan** | Set your **payday schedule** (weekly / biweekly / twice-a-month / monthly) and Float builds a **paycheck-by-paycheck plan** — which bills to cover from each check and what's left over. Plus **bill reminders**: on the phone it sends a notification the day before each non-autopay bill is due. |
-| **Car** | Affordability verdict vs. the ~15%-of-income guideline, plus tailored options: refinance, extend the term, or sell/trade — with an underwater warning if you owe more than it's worth. |
+| **Plan** → *Your car* | (same tab) Affordability verdict vs. the ~15%-of-income guideline, plus tailored options: refinance, extend the term, or sell/trade — with an underwater warning if you owe more than it's worth. |
 | **Receipts** | Snap/upload a receipt photo and **Google Gemini reads it automatically** — splitting one purchase into editable line items across categories — or paste text as a fallback. Save them all to spending in one shot. |
 | **Micro-funds** | Spin up a one-off event fund ("Sarah's Bachelorette"), fund it by redirecting from your daily allowance, archive it when it's over so your core budget stays clean. |
-| **Sandbox** | Model a hypothetical loan ("$30k car @ 7% for 5 years") and *feel* how much it shrinks your daily allowance — every day — before you sign. |
+| **Can I afford it?** → *What if you financed it?* | (same tab) Model a hypothetical loan ("$30k car @ 7% for 5 years") and *feel* how much it shrinks your daily allowance — every day — before you sign. |
 
 ## How the numbers work
 
